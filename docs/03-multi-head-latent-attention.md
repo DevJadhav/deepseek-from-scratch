@@ -89,8 +89,8 @@ For $D = 4096$, $d_c = 512$:
 ```
 Standard MHA KV Cache:
 ┌──────────────────────────────────────┐
-│ K: [L × H × d_h] = [L × D]          │  ← Full dimension
-│ V: [L × H × d_h] = [L × D]          │
+│ K: [L × H × d_h] = [L × D]           │  ← Full dimension
+│ V: [L × H × d_h] = [L × D]           │
 │ Total: 2 × L × D                     │
 └──────────────────────────────────────┘
 

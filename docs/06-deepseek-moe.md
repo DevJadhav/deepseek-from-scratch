@@ -140,7 +140,7 @@ Input Token x
          ▼                                  ▼
     ┌────────┐              ┌─────────────────────────────┐
     │Σ Sᵢ(x) │              │  Routed Experts Rⱼ          │
-    └────┬───┘              │  (only selected activated)   │
+    └────┬───┘              │  (only selected activated)  │
          │                  │  Σ gⱼ · Rⱼ(x)               │
          │                  └──────────────┬──────────────┘
          │                                 │
