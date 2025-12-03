@@ -1,0 +1,33 @@
+{
+  "run_name": "tiny-test",
+  "project_name": "deepseek-from-scratch",
+  "backend": "modal_gpu",
+  "model_size": "tiny",
+  "model": {
+    "d_model": 256,
+    "num_heads": 4,
+    "num_layers": 4,
+    "vocab_size": 8000,
+    "max_seq_len": 512,
+    "num_experts": 4,
+    "top_k": 1
+  },
+  "data": {
+    "data_dir": "./data"
+  },
+  "training": {
+    "batch_size": 8,
+    "gradient_accumulation_steps": 2,
+    "learning_rate": 0.0001,
+    "max_steps": 20,
+    "warmup_steps": 5,
+    "use_amp": true,
+    "save_every_n_steps": 10,
+    "log_every_n_steps": 5
+  },
+  "distributed": {
+    "num_workers": 1,
+    "gpus_per_worker": 1
+  },
+  "stages_to_run": ["pretrain"]
+}

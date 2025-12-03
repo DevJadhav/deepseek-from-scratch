@@ -1,0 +1,25 @@
+# Requirements for Tiny DeepSeek Training
+# ========================================
+#
+# Install with: uv pip install -r requirements-tiny.txt
+#
+
+# MLX (Apple Silicon only)
+mlx>=0.0.10
+
+# Core dependencies
+numpy>=1.24.0
+transformers>=4.35.0
+datasets>=2.14.0
+tokenizers>=0.14.0
+
+# Ray pipeline (optional, for distributed training)
+ray[default]>=2.8.0
+
+# Utilities
+tqdm>=4.65.0
+safetensors>=0.4.0
+
+# Development (optional)
+pytest>=7.4.0
+black>=23.0.0

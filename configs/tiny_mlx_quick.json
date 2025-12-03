@@ -1,0 +1,45 @@
+{
+  "run_name": "tiny-mlx-quick-test",
+  "project_name": "deepseek-from-scratch",
+  "backend": "mlx",
+  "model_size": "tiny",
+  "model": {
+    "d_model": 256,
+    "num_heads": 4,
+    "num_layers": 4,
+    "vocab_size": 50257,
+    "max_seq_len": 512,
+    "d_latent": 64,
+    "d_rope": 32,
+    "num_experts": 4,
+    "num_shared_experts": 1,
+    "top_k": 1,
+    "num_expert_groups": 2,
+    "moe_hidden_mult": 2.0,
+    "mtp_k": 2,
+    "use_sparse_attention": false,
+    "dropout": 0.0
+  },
+  "stages_to_run": [
+    "pretrain"
+  ],
+  "data": {
+    "data_dir": "./data/stories",
+    "cache_dir": "./cache",
+    "tokenizer_name": "gpt2",
+    "num_workers": 2
+  },
+  "training": {
+    "learning_rate": 0.0003,
+    "min_learning_rate": 0.00001,
+    "weight_decay": 0.01,
+    "warmup_steps": 10,
+    "max_steps": 50,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 2,
+    "checkpoint_dir": "./checkpoints/ray-tiny",
+    "save_every_n_steps": 25,
+    "log_every_n_steps": 10,
+    "eval_every_n_steps": 25
+  }
+}

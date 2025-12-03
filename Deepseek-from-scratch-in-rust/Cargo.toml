@@ -1,0 +1,34 @@
+[package]
+name = "deepseek_from_scratch_in_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candle-core = { version = "0.8.2", features = ["metal", "accelerate"] }
+candle-nn = { version = "0.8.2", features = ["metal", "accelerate"] }
+candle-transformers = { version = "0.8.2", features = ["metal", "accelerate"] }
+anyhow = "1.0"
+accelerate-src = "0.3.2"
+tracing = "0.1.43"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
+thiserror = "2.0.17"
+tokio = { version = "1.0", features = ["full"] }
+
+# Serialization & Config
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Checksum
+sha2 = "0.10"
+
+# Metrics
+prometheus = "0.13"
+
+# Testing
+tempfile = "3.10"
+
+[features]
+default = ["cuda"]
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+# TODO: Remove after production - disable cuda with: cargo build --no-default-features
+
