@@ -4,6 +4,12 @@
 
 Knowledge distillation enables training smaller, efficient models that retain most of the capabilities of larger teacher models. This chapter covers distillation techniques used in DeepSeek model compression.
 
+**Key Papers:**
+- [Distilling the Knowledge in a Neural Network](https://arxiv.org/abs/1503.02531) (Hinton et al., 2015)
+- [DistilBERT, a distilled version of BERT](https://arxiv.org/abs/1910.01108) (Sanh et al., 2019)
+- [TinyBERT: Distilling BERT for Natural Language Understanding](https://arxiv.org/abs/1909.10351) (Jiao et al., 2019)
+- [Knowledge Distillation: A Survey](https://arxiv.org/abs/2006.05525) (Gou et al., 2020)
+
 ## Table of Contents
 
 1. [Foundations of Knowledge Distillation](#foundations)

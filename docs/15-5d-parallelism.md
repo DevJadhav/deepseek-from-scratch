@@ -4,6 +4,13 @@
 
 DeepSeek-V3.2 employs **5D parallelism** to efficiently train models with 671B parameters across thousands of GPUs. This comprehensive parallelization strategy combines five orthogonal dimensions to achieve near-linear scaling while maintaining high GPU utilization.
 
+**Key Papers:**
+- [Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism](https://arxiv.org/abs/1909.08053) (Shoeybi et al., 2019)
+- [GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism](https://arxiv.org/abs/1811.06965) (Huang et al., 2018)
+- [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054) (Rajbhandari et al., 2019)
+- [Sequence Parallelism: Long Sequence Training from System Perspective](https://arxiv.org/abs/2105.13120) (Li et al., 2021)
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) (DeepSeek-AI, 2024)
+
 ## The Five Dimensions
 
 ```

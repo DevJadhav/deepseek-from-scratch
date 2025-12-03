@@ -14,6 +14,11 @@ FP8 (8-bit floating point) quantization reduces model size and increases through
 - Nvidia H100/H200 native FP8 support
 - Apple M3+ supports FP8 operations
 
+**Key Papers:**
+- [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433) (Micikevicius et al., 2022)
+- [8-bit Numerical Formats for Deep Neural Networks](https://arxiv.org/abs/2206.02915) (Noune et al., 2022)
+- [LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale](https://arxiv.org/abs/2208.07339) (Dettmers et al., 2022)
+
 ---
 
 ## When to Use FP8

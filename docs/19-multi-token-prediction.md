@@ -7,6 +7,12 @@
 2. Enable speculative decoding for faster inference
 3. Better capture long-range dependencies
 
+**Key Papers:**
+- [Better & Faster Large Language Models via Multi-token Prediction](https://arxiv.org/abs/2404.19737) (Meta AI, 2024)
+- [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) (Leviathan et al., 2022)
+- [Accelerating Large Language Model Decoding with Speculative Sampling](https://arxiv.org/abs/2302.01318) (Chen et al., 2023)
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) (DeepSeek-AI, 2024)
+
 ## Architecture
 
 ```

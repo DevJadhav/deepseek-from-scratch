@@ -11,6 +11,12 @@ This document covers the training infrastructure components used in DeepSeek imp
 5. **Checkpointing**: Model saving and resumption
 6. **Distributed Training**: Multi-GPU strategies
 
+**Key Papers:**
+- [Decoupled Weight Decay Regularization (AdamW)](https://arxiv.org/abs/1711.05101) (Loshchilov & Hutter, 2017)
+- [SGDR: Stochastic Gradient Descent with Warm Restarts](https://arxiv.org/abs/1608.03983) (Loshchilov & Hutter, 2016)
+- [Mixed Precision Training](https://arxiv.org/abs/1710.03740) (Micikevicius et al., 2017)
+- [Large Batch Optimization for Deep Learning](https://arxiv.org/abs/1904.00962) (You et al., 2019)
+
 ---
 
 ## AdamW Optimizer

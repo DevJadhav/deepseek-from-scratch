@@ -4,6 +4,12 @@
 
 **ZeRO (Zero Redundancy Optimizer)** is a memory optimization technique that eliminates redundant storage of model states across data parallel ranks. DeepSeek-V3.2 uses ZeRO-2 to train the 671B parameter model efficiently.
 
+**Key Papers:**
+- [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054) (Rajbhandari et al., 2019)
+- [ZeRO-Offload: Democratizing Billion-Scale Model Training](https://arxiv.org/abs/2101.06840) (Ren et al., 2021)
+- [ZeRO-Infinity: Breaking the GPU Memory Wall for Extreme Scale Deep Learning](https://arxiv.org/abs/2104.07857) (Rajbhandari et al., 2021)
+- [PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel](https://arxiv.org/abs/2304.11277) (Zhao et al., 2023)
+
 ## Memory Analysis
 
 ### Without ZeRO (Standard Data Parallelism)

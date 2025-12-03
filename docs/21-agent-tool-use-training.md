@@ -4,6 +4,13 @@
 
 **Agent and Tool-Use Training** enables language models to effectively interact with external tools, APIs, and environments. DeepSeek V3 uses a combination of supervised fine-tuning, GRPO (Group Relative Policy Optimization), and trajectory-based learning to develop robust agentic capabilities.
 
+**Key Papers:**
+- [Toolformer: Language Models Can Teach Themselves to Use Tools](https://arxiv.org/abs/2302.04761) (Schick et al., 2023)
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) (Yao et al., 2022)
+- [Gorilla: Large Language Model Connected with Massive APIs](https://arxiv.org/abs/2305.15334) (Patil et al., 2023)
+- [ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs](https://arxiv.org/abs/2307.16789) (Qin et al., 2023)
+- [DeepSeekMath: Pushing the Limits of Mathematical Reasoning](https://arxiv.org/abs/2402.03300) (DeepSeek-AI, 2024)
+
 ## Architecture
 
 ```

@@ -14,6 +14,12 @@ DeepSeek-V3.2 represents the state-of-the-art in large language model architectu
 - **FP8 Mixed-Precision**: Efficient inference on modern hardware
 - **Agent/Tool-Use Training**: Structured environment for training tool-using agents
 
+**Key Papers:**
+- [DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model](https://arxiv.org/abs/2405.04434) (DeepSeek-AI, 2024)
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) (DeepSeek-AI, 2024)
+- [DeepSeekMoE: Towards Ultimate Expert Specialization](https://arxiv.org/abs/2401.06066) (DeepSeek-AI, 2024)
+- [DeepSeekMath: Pushing the Limits of Mathematical Reasoning](https://arxiv.org/abs/2402.03300) (DeepSeek-AI, 2024)
+
 ---
 
 ## 🏗️ Core Components

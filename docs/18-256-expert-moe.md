@@ -4,6 +4,13 @@
 
 DeepSeek V3 uses a **256-expert Mixture-of-Experts** architecture with hierarchical two-stage routing. This design enables the model to scale to 671B total parameters while only activating 37B per token, achieving a 18x efficiency improvement.
 
+**Key Papers:**
+- [DeepSeekMoE: Towards Ultimate Expert Specialization](https://arxiv.org/abs/2401.06066) (DeepSeek-AI, 2024)
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) (DeepSeek-AI, 2024)
+- [Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer](https://arxiv.org/abs/1701.06538) (Shazeer et al., 2017)
+- [Switch Transformers: Scaling to Trillion Parameter Models](https://arxiv.org/abs/2101.03961) (Fedus et al., 2021)
+- [Mixtral of Experts](https://arxiv.org/abs/2401.04088) (Mistral AI, 2024)
+
 ## Architecture
 
 ```

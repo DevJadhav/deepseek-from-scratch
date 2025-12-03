@@ -4,6 +4,12 @@
 
 **DeepSeek Sparse Attention (DSA)** is a hybrid attention mechanism that combines sliding window local attention with global tokens and optional dilated patterns. This enables efficient processing of 128K+ context windows while maintaining O(n·w) complexity instead of O(n²).
 
+**Key Papers:**
+- [Longformer: The Long-Document Transformer](https://arxiv.org/abs/2004.05150) (Beltagy et al., 2020)
+- [BigBird: Transformers for Longer Sequences](https://arxiv.org/abs/2007.14062) (Zaheer et al., 2020)
+- [LongNet: Scaling Transformers to 1,000,000,000 Tokens](https://arxiv.org/abs/2307.02486) (Ding et al., 2023)
+- [DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model](https://arxiv.org/abs/2405.04434) (DeepSeek-AI, 2024)
+
 ## Architecture
 
 ```

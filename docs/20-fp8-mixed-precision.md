@@ -7,6 +7,12 @@
 - **2x compute throughput** on modern hardware (H100, MI300X)
 - **Minimal accuracy loss** (<0.1% perplexity increase)
 
+**Key Papers:**
+- [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433) (Micikevicius et al., 2022)
+- [Mixed Precision Training](https://arxiv.org/abs/1710.03740) (Micikevicius et al., 2017)
+- [8-bit Optimizers via Block-wise Quantization](https://arxiv.org/abs/2110.02861) (Dettmers et al., 2021)
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) (DeepSeek-AI, 2024)
+
 ## FP8 Format Specifications
 
 ```
