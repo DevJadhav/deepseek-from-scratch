@@ -2,6 +2,19 @@
 
 This guide walks you through training a small language model on the TinyStories dataset using the DeepSeek-From-Scratch framework. The pipeline supports multiple backends including local MLX/PyTorch and **Modal cloud GPUs** for distributed training with **5D parallelism**.
 
+## ✅ Verification Status
+
+**Last Verified:** December 5, 2025  
+**Package Manager:** uv v0.7.8  
+**Python:** 3.12.10  
+
+| Backend | Status | Notes |
+|---------|--------|-------|
+| MLX | ✅ Working | Apple Silicon native |
+| PyTorch | ✅ Working | MPS/CPU |
+| Rust | ✅ Working | Metal backend |
+| Modal GPU | ✅ Working | Cloud H100/A100 |
+
 ## Performance Summary (3000 steps benchmark)
 
 | Backend | Hardware | Parallelism | Time | Steps/sec | Final Loss |

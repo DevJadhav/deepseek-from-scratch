@@ -1,0 +1,61 @@
+# AdamW Optimizer Configuration
+# Default optimizer settings for DeepSeek training
+
+defaults:
+  - _self_
+
+# Optimizer Type
+name: adamw
+fused: true             # Use fused kernel when available
+foreach: false          # Multi-tensor operations
+
+# Core Parameters
+learning_rate: 3.0e-4
+weight_decay: 0.1
+betas: [0.9, 0.95]      # DeepSeek uses beta2=0.95
+eps: 1.0e-8
+
+# Weight Decay Exclusions
+no_weight_decay_modules:
+  - LayerNorm
+  - RMSNorm
+  - bias
+  - embeddings
+
+# Learning Rate Schedule
+scheduler:
+  name: cosine_with_warmup
+  
+  # Warmup Configuration
+  warmup_steps: 2000
+  warmup_ratio: 0.0     # Alternative: fraction of total steps
+  warmup_type: linear   # linear, exponential, constant
+  
+  # Main Schedule
+  num_training_steps: null  # Auto from max_steps
+  min_lr: 0.0           # Minimum learning rate
+  min_lr_ratio: 0.1     # Alternative: fraction of peak LR
+  
+  # Cosine Parameters
+  num_cycles: 0.5       # Half cosine for training
+  
+  # Decay Parameters (for step/exponential schedules)
+  decay_rate: 0.1
+  decay_steps: 10000
+  staircase: false
+
+# Gradient Configuration
+gradient:
+  max_norm: 1.0
+  norm_type: 2.0
+  error_if_nonfinite: true
+  
+# Precision
+precision:
+  master_weights: true  # Keep FP32 master weights
+  loss_scale: dynamic   # dynamic, static, null
+  initial_scale: 65536.0
+  growth_interval: 2000
+  growth_factor: 2.0
+  backoff_factor: 0.5
+  min_scale: 1.0

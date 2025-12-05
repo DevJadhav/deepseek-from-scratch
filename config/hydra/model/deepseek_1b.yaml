@@ -1,0 +1,96 @@
+# DeepSeek 1B Model Configuration
+# ================================
+# Medium-scale model for serious experimentation
+# 
+# Target Hardware: 8x A100 (40GB or 80GB) or equivalent
+# Use Case: Serious experiments, research validation
+# Training Time: ~1-2 days on 8x A100
+# Parameter Count: ~1B total (~280M active per token with MoE)
+#
+# Usage:
+#   uv run torchrun --nproc_per_node=8 scripts/train.py model=deepseek_1b training=fsdp
+#   uv run python scripts/train.py model=deepseek_1b training=distributed
+
+defaults:
+  - moe/default
+  - _self_
+
+# Model Architecture
+name: deepseek_1b
+vocab_size: 32000
+num_layers: 24
+d_model: 2048
+num_heads: 16
+d_latent: 256             # KV compression dimension
+q_latent: 512             # Query compression dimension  
+d_rope: 64                # RoPE dimension
+qk_nope_head_dim: 64
+qk_rope_head_dim: 64
+d_hidden: 5120            # FFN hidden dimension
+
+# Multi-Latent Attention
+mla:
+  enabled: true
+  kv_compression_dim: 256
+  query_compression_dim: 512
+  decoupled_rope: true
+  rope_theta: 10000.0
+  max_position_embeddings: 8192
+
+# MoE Configuration (medium scale - 16 experts)
+moe:
+  use_moe: true
+  num_experts: 16           # 16 routed experts
+  num_shared_experts: 1
+  top_k: 4                  # 4 experts per token
+  expert_intermediate_dim: 1280
+  use_auxiliary_loss: false
+  use_hierarchical_routing: false  # Not needed for 16 experts
+  capacity_factor: 1.25
+  bias_update_rate: 0.001
+  load_balance_ema_decay: 0.99
+  enable_megablocks: true   # Worth it at this scale
+
+# Multi-Token Prediction
+mtp:
+  enabled: true
+  depth: 1
+  loss_weight: 0.5
+  dropout: 0.0
+
+# Dropout (disabled for training stability)
+dropout: 0.0
+attention_dropout: 0.0
+hidden_dropout: 0.0
+
+# Weight Initialization
+init_std: 0.02
+use_scaled_init: true
+
+# Recommended Training Configuration
+training:
+  batch_size: 4
+  micro_batch_size: 4
+  gradient_accumulation_steps: 8
+  effective_batch_size: 256   # 4 * 8 GPUs * 8 accumulation
+  seq_len: 2048
+  max_steps: 200000
+  warmup_steps: 2000
+  learning_rate: 2.0e-4
+  weight_decay: 0.1
+  
+  precision:
+    mode: auto              # BF16 on A100
+
+  distributed:
+    enabled: true
+    strategy: fsdp
+    world_size: 8
+    expert_parallel_size: 2
+    
+  checkpoint:
+    save_steps: 5000
+    save_total_limit: 5
+    gradient_checkpointing: true
+
+# Memory Requirements: ~5-8GB per GPU with FSDP sharding

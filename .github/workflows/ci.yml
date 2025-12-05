@@ -1,0 +1,334 @@
+# DeepSeek CI/CD Pipeline
+# Runs on push to main and pull requests
+#
+# Jobs:
+# - lint: Ruff linting and Pyright type checking
+# - test-cpu: CPU-only tests (all platforms)
+# - test-gpu: GPU tests (self-hosted runner with CUDA)
+# - rust: Rust tests and clippy
+# - benchmark: Performance benchmarks
+# - docs: Documentation build
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.10"
+  UV_VERSION: "0.4"
+
+jobs:
+  # ==========================================================================
+  # Linting and Type Checking
+  # ==========================================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
+
+      - name: Run Ruff linter
+        run: |
+          uv run ruff check . --output-format=github
+
+      - name: Run Ruff formatter check
+        run: |
+          uv run ruff format --check .
+
+      - name: Run Pyright
+        run: |
+          uv run pyright deepseek-from-scratch-python/src deepseek-from-scratch-python/mlx_impl
+        continue-on-error: true  # Don't fail on type errors for now
+
+  # ==========================================================================
+  # CPU Tests (All platforms)
+  # ==========================================================================
+  test-cpu:
+    name: CPU Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        exclude:
+          # Only test one Python version on macOS to save time
+          - os: macos-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.12"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
+
+      - name: Run CPU tests
+        run: |
+          uv run pytest deepseek-from-scratch-python/tests \
+            -v \
+            --tb=short \
+            -m "not gpu and not distributed and not slow" \
+            --ignore=deepseek-from-scratch-python/tests/training/test_distributed.py \
+            --ignore=deepseek-from-scratch-python/tests/training/test_distributed_training.py \
+            -x
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            pytest-*.xml
+            .pytest_cache/
+
+  # ==========================================================================
+  # GPU Tests (Self-hosted runner)
+  # ==========================================================================
+  test-gpu:
+    name: GPU Tests
+    runs-on: [self-hosted, gpu]
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: [lint, test-cpu]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --extra cuda
+
+      - name: Check CUDA availability
+        run: |
+          uv run python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"N/A\"}')"
+
+      - name: Run GPU tests
+        run: |
+          uv run pytest deepseek-from-scratch-python/tests \
+            -v \
+            --tb=short \
+            -m "gpu or not slow" \
+            -x
+        env:
+          CUDA_VISIBLE_DEVICES: "0"
+
+  # ==========================================================================
+  # Rust Tests
+  # ==========================================================================
+  rust:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            Deepseek-from-scratch-in-rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        working-directory: Deepseek-from-scratch-in-rust
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        working-directory: Deepseek-from-scratch-in-rust
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        working-directory: Deepseek-from-scratch-in-rust
+        run: cargo test --all-features
+
+  # ==========================================================================
+  # Benchmarks
+  # ==========================================================================
+  benchmark:
+    name: Benchmarks
+    runs-on: [self-hosted, gpu]
+    if: github.ref == 'refs/heads/main'
+    needs: [test-gpu]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --extra cuda
+
+      - name: Run benchmarks
+        run: |
+          uv run pytest deepseek-from-scratch-python/tests \
+            -v \
+            -m "benchmark" \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+
+  # ==========================================================================
+  # Documentation Build
+  # ==========================================================================
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra docs
+
+      - name: Build documentation
+        run: |
+          uv run mkdocs build --strict
+        continue-on-error: true  # Allow docs to fail if not configured
+
+
+  # ==========================================================================
+  # Release (on tags)
+  # ==========================================================================
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [lint, test-cpu, rust]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Build package
+        run: |
+          uv build
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================================================
+  # Model Checkpoint Upload (on release with checkpoints)
+  # ==========================================================================
+  upload-checkpoints:
+    name: Upload Model Checkpoints
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for checkpoint artifacts
+        id: check
+        run: |
+          if [ -d "checkpoints/final" ] && [ "$(ls -A checkpoints/final 2>/dev/null)" ]; then
+            echo "has_checkpoints=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_checkpoints=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Package checkpoints
+        if: steps.check.outputs.has_checkpoints == 'true'
+        run: |
+          cd checkpoints
+          tar -czvf ../model-checkpoints-${{ github.ref_name }}.tar.gz final/
+
+      - name: Upload checkpoints to release
+        if: steps.check.outputs.has_checkpoints == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: model-checkpoints-${{ github.ref_name }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Hugging Face Hub (optional)
+        if: steps.check.outputs.has_checkpoints == 'true' && env.HF_TOKEN != ''
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install huggingface_hub
+          python -c "
+          from huggingface_hub import HfApi
+          api = HfApi()
+          api.upload_folder(
+              folder_path='checkpoints/final',
+              repo_id='${{ github.repository }}',
+              repo_type='model',
+              token='${{ secrets.HF_TOKEN }}'
+          )
+          "

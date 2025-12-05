@@ -1,0 +1,121 @@
+# Weights & Biases Logging Configuration
+# Comprehensive experiment tracking
+
+defaults:
+  - _self_
+
+# W&B Core Configuration
+wandb:
+  enabled: true
+  project: deepseek-training
+  entity: null          # Your W&B username or team name
+  name: null            # Run name (auto-generated if null)
+  group: null           # Group related runs
+  job_type: training    # training, evaluation, inference
+  tags: []
+  notes: null
+  
+  # Mode Configuration
+  mode: online          # online, offline, disabled
+  resume: allow         # allow, must, never, auto
+  id: null              # Run ID for resuming
+  
+  # Artifact Configuration
+  log_model: true       # Log model checkpoints as artifacts
+  log_code: true        # Save code for reproducibility
+  log_config: true      # Log Hydra config
+  
+  # Sync Configuration
+  save_code: true
+  sync_tensorboard: false
+  
+  # Directory Configuration
+  dir: ./wandb
+  
+# Metrics Logging
+metrics:
+  # Training Metrics
+  training:
+    loss: true
+    learning_rate: true
+    gradient_norm: true
+    epoch: true
+    step: true
+    tokens_seen: true
+    
+  # Performance Metrics
+  performance:
+    throughput_tokens_per_sec: true
+    throughput_samples_per_sec: true
+    mbu: true           # Model Bandwidth Utilization
+    step_time: true
+    
+  # Memory Metrics
+  memory:
+    gpu_allocated: true
+    gpu_reserved: true
+    gpu_peak: true
+    activation_memory: true
+    
+  # MoE-Specific Metrics
+  moe:
+    expert_utilization: true
+    load_balance_cv: true
+    per_expert_tokens: true
+    router_entropy: true
+    dropped_tokens: true
+    
+  # MTP Metrics
+  mtp:
+    accuracy_depth_0: true
+    accuracy_depth_1: true
+    accuracy_depth_2: true
+    mtp_loss: true
+    
+  # Validation Metrics
+  validation:
+    val_loss: true
+    val_perplexity: true
+
+# Logging Intervals
+intervals:
+  log_steps: 10
+  media_steps: 1000     # Images, histograms, etc.
+  summary_steps: 100
+
+# Alerts
+alerts:
+  loss_spike:
+    enabled: true
+    threshold: 2.0      # Alert if loss > 2x moving average
+    window: 100
+    
+  nan_detection:
+    enabled: true
+    
+  gpu_utilization:
+    enabled: true
+    min_threshold: 50   # Alert if GPU util < 50%
+    
+# Visualizations
+visualizations:
+  attention_maps: false
+  expert_routing: true
+  loss_landscape: false
+  gradient_flow: false
+
+# Sweeps Configuration (for hyperparameter search)
+sweeps:
+  method: bayes         # grid, random, bayes
+  metric:
+    name: val_loss
+    goal: minimize
+  parameters:
+    learning_rate:
+      distribution: log_uniform_values
+      min: 1.0e-5
+      max: 1.0e-3
+    weight_decay:
+      values: [0.01, 0.05, 0.1]
+    batch_size:
+      values: [8, 16, 32]

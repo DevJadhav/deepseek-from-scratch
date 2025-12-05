@@ -1,0 +1,71 @@
+# DualPipe Pipeline Parallelism Configuration
+# DeepSeek's bidirectional pipeline scheduling
+# Target: Multi-GPU with many layers
+
+defaults:
+  - distributed
+  - _self_
+
+# Strategy
+strategy: dualpipe
+
+# Pipeline Parallelism Configuration
+pipeline:
+  # Basic Configuration
+  num_stages: 4           # Number of pipeline stages
+  num_micro_batches: 8    # Micro-batches per global batch
+  
+  # DualPipe Scheduling
+  dualpipe:
+    enabled: true
+    bidirectional: true   # Forward 0→N, Backward N→0 simultaneously
+    interleaved: true     # Interleaved forward/backward schedule
+    
+  # Stage Assignment
+  stage_assignment:
+    strategy: uniform     # uniform, layer_balance, compute_balance
+    layers_per_stage: auto
+    
+  # Communication
+  communication:
+    async_send_recv: true
+    prefetch_activations: true
+    overlap_p2p_comm: true
+    
+  # Activation Stashing
+  activation_stashing:
+    enabled: true
+    offload_to_cpu: false
+    compression: none     # none, fp16, quantize
+    
+  # Warmup/Cooldown
+  warmup_micro_batches: 2
+  cooldown_micro_batches: 2
+  
+  # Load Balancing
+  load_balance:
+    enabled: true
+    rebalance_interval: 1000
+    tolerance: 0.1
+
+# Combined Parallelism (3D: DP + PP + EP)
+combined_parallelism:
+  data_parallel_size: 2
+  pipeline_parallel_size: 4
+  expert_parallel_size: 1
+  
+# Memory Optimization
+memory:
+  gradient_checkpointing: true
+  checkpoint_stages: [0, 1, 2, 3]  # Checkpoint all stages
+  
+# Checkpointing
+checkpoint:
+  output_dir: ./checkpoints/dualpipe
+  save_pipeline_states: true
+
+# Logging
+logging:
+  log_bubble_ratio: true
+  log_stage_times: true
+  log_communication_time: true

@@ -1,0 +1,52 @@
+# DeepSeek Training - MLX Image (Apple Silicon)
+# Base image with MLX and all training dependencies
+#
+# Build: docker build -f Dockerfile.mlx -t deepseek-training:mlx --platform linux/arm64 .
+# Run: docker run -it deepseek-training:mlx
+
+ARG PYTHON_VERSION=3.10
+ARG UV_VERSION=0.4
+
+FROM python:${PYTHON_VERSION}-slim-bookworm
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy project files
+COPY pyproject.toml uv.lock ./
+COPY deepseek-from-scratch-python/ ./deepseek-from-scratch-python/
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
+
+# Install dependencies (without CUDA extras)
+RUN uv sync --extra dev
+
+# Install MLX (will work on Apple Silicon when run natively)
+RUN uv pip install mlx mlx-lm || echo "MLX installation skipped (not on Apple Silicon)"
+
+# Set environment variables
+ENV TOKENIZERS_PARALLELISM=false
+ENV WANDB_DIR=/workspace/wandb
+
+# Create directories for outputs
+RUN mkdir -p /workspace/checkpoints /workspace/logs /workspace/wandb
+
+# Default command
+CMD ["bash"]

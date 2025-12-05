@@ -1,0 +1,117 @@
+# DeepSeek GPU Optimization Configuration
+# Model configuration optimized for GPU performance
+#
+# Usage:
+#   uv run python scripts/train.py model=gpu_optimization
+#   uv run python scripts/train.py model=gpu_optimization training.batch_size=8
+
+defaults:
+  - _self_
+
+# Model Architecture
+model:
+  vocab_size: 32000
+  num_layers: 12
+  d_model: 768
+  num_heads: 12
+  d_latent: 192  # KV compression dimension
+  d_rope: 48     # RoPE dimension
+  d_hidden: 3072 # FFN hidden dimension
+  
+  # MoE Configuration
+  use_moe: true
+  num_experts: 8
+  num_shared: 1
+  num_routed: 8
+  top_k: 2
+  
+  # Dropout
+  dropout: 0.1
+
+# Flash Attention Configuration
+attention:
+  backend: auto  # auto, flash, memory_efficient, math
+  enable_flash: true
+  enable_mem_efficient: true
+  chunk_size: null  # null = no chunking, or set integer for very long sequences
+  is_causal: true
+
+# Gradient Checkpointing
+checkpointing:
+  enabled: true
+  checkpoint_every_n_layers: 1
+  checkpoint_moe: true
+  use_reentrant: false  # false for torch.compile compatibility
+
+# torch.compile Configuration
+compile:
+  enabled: true
+  mode: reduce-overhead  # reduce-overhead, max-autotune, default, disabled
+  fullgraph: false
+  dynamic: true
+  backend: inductor
+  warmup_steps: 5
+  debug_graph_breaks: false
+
+# Mixed Precision Configuration
+precision:
+  mode: auto  # auto, fp32, fp16, bf16
+  compute_loss_in_fp32: true
+  optimizer_states_in_fp32: true
+  # GradScaler settings (for FP16)
+  init_scale: 65536.0
+  growth_factor: 2.0
+  backoff_factor: 0.5
+  growth_interval: 2000
+
+# Training Configuration
+training:
+  # Optimizer
+  learning_rate: 3e-4
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  max_grad_norm: 1.0
+  
+  # Scheduler
+  warmup_steps: 1000
+  max_steps: 100000
+  min_lr_ratio: 0.1
+  
+  # Batch
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  seq_len: 1024
+  
+  # Checkpointing
+  save_every: 1000
+  checkpoint_dir: ./checkpoints
+  
+  # Logging
+  log_every: 10
+
+# Memory Profiling
+profiling:
+  enabled: false
+  log_interval: 100
+  reset_peak_on_log: true
+  pytorch_profiler:
+    enabled: false
+    output_dir: ./profiler_output
+    wait: 1
+    warmup: 1
+    active: 3
+    repeat: 1
+    profile_memory: true
+    with_stack: true
+
+# W&B Configuration
+wandb:
+  enabled: true
+  project: deepseek-gpu-optimization
+  entity: null  # Your W&B username or team
+  name: null    # Run name (auto-generated if null)
+  tags:
+    - gpu-optimization
+    - flash-attention
+  log_model: false

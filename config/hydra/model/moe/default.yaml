@@ -1,0 +1,50 @@
+# Default MoE Routing Configuration
+# For high-end hardware (H100+ clusters)
+#
+# Uses full 256 experts without hierarchical routing for maximum capacity.
+
+defaults:
+  - _self_
+
+moe:
+  use_hierarchical_routing: false
+  
+  # Expert configuration (V3 spec)
+  num_experts: 256
+  num_shared_experts: 1
+  top_k: 8
+  
+  # Hierarchical routing (disabled by default)
+  hierarchical_routing:
+    enabled: false
+    num_groups: 8
+    experts_per_group: 32
+    group_top_k: 2
+    expert_top_k_per_group: 4
+    group_selection: "softmax"
+    group_load_balance: true
+    group_bias_lr: 0.001
+    group_bias_clamp: 2.0
+  
+  # Consolidation (disabled for H100)
+  consolidation:
+    enabled: false
+    factor: 1
+    
+  # Fine-grained dimensions
+  expert_intermediate_dim: 2048
+  
+  # Auxiliary-loss-free balancing
+  use_auxiliary_loss: false
+  bias_update_rate: 0.001
+  load_balance_ema_decay: 0.99
+  bias_clamp: 2.0
+  
+  # Capacity handling
+  capacity_factor: 1.25
+  min_capacity: 4
+  enable_token_dropping: true
+  
+  # MegaBlocks optimization
+  enable_megablocks: true
+  block_size: 64

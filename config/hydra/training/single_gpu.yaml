@@ -1,0 +1,84 @@
+# Single GPU Training Configuration
+# For local development and debugging
+# Target: Single GPU (A100-40GB or consumer GPU)
+
+defaults:
+  - _self_
+
+# Device Configuration
+device: auto            # auto, cuda, mps, cpu
+num_gpus: 1
+distributed: false
+
+# Optimizer Configuration
+optimizer:
+  name: adamw
+  learning_rate: 3.0e-4
+  weight_decay: 0.1
+  betas: [0.9, 0.95]
+  eps: 1.0e-8
+  fused: true           # Use fused AdamW when available
+
+# Learning Rate Schedule
+scheduler:
+  name: cosine_with_warmup
+  warmup_steps: 1000
+  warmup_ratio: 0.0     # Alternative to warmup_steps
+  min_lr_ratio: 0.1
+  num_cycles: 0.5
+
+# Gradient Configuration
+gradient:
+  max_norm: 1.0
+  accumulation_steps: 4
+  clip_in_fp32: true
+
+# Batch Configuration
+batch_size: 8
+micro_batch_size: 8     # Same as batch_size for single GPU
+effective_batch_size: 32  # batch_size * accumulation_steps
+
+# Sequence Configuration
+seq_len: 2048
+max_position_embeddings: 4096
+
+# Training Duration
+max_steps: 100000
+max_epochs: null        # Use max_steps instead
+
+# Checkpointing
+checkpoint:
+  save_steps: 1000
+  save_total_limit: 5
+  output_dir: ./checkpoints
+  resume_from: null
+  save_optimizer: true
+  async_save: false     # No async for single GPU
+
+# Logging
+logging:
+  log_steps: 10
+  log_level: INFO
+  show_progress: true
+
+# Mixed Precision
+precision:
+  mode: auto            # auto, fp32, fp16, bf16
+  use_amp: true
+  grad_scaler: true     # For FP16 fallback
+
+# Memory Optimization
+memory:
+  gradient_checkpointing: true
+  checkpoint_every_n_layers: 1
+  empty_cache_steps: 0  # 0 = disabled
+
+# Compilation
+compile:
+  enabled: true
+  mode: reduce-overhead
+  warmup_steps: 5
+
+# Reproducibility
+seed: 42
+deterministic: false    # Faster if false

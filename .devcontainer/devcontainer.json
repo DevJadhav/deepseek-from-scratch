@@ -1,0 +1,88 @@
+{
+    "name": "DeepSeek-V3 Development",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "deepseek-dev",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/root/.local/share/uv/python/cpython-3.10/bin/python",
+                "python.analysis.typeCheckingMode": "basic",
+                "python.analysis.autoImportCompletions": true,
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": ["deepseek-from-scratch-python/tests"],
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.organizeImports": "explicit"
+                },
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                },
+                "ruff.lint.run": "onSave",
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/.pytest_cache": true,
+                    "**/target": true,
+                    "**/*.egg-info": true
+                },
+                "terminal.integrated.defaultProfile.linux": "bash"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "ms-toolsai.jupyter",
+                "ms-azuretools.vscode-docker",
+                "rust-lang.rust-analyzer",
+                "tamasfe.even-better-toml",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "eamodio.gitlens",
+                "njpwerner.autodocstring",
+                "streetsidesoftware.code-spell-checker",
+                "ms-vscode.hexeditor",
+                "mhutchie.git-graph",
+                "usernamehw.errorlens"
+            ]
+        }
+    },
+    
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/rust:1": {}
+    },
+    
+    "forwardPorts": [8888, 6006],
+    
+    "postCreateCommand": "uv sync --extra cuda --extra dev && pre-commit install",
+    
+    "postStartCommand": "git config --global --add safe.directory /workspace",
+    
+    "remoteUser": "root",
+    
+    "mounts": [
+        "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,readonly",
+        "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
+    ],
+    
+    "containerEnv": {
+        "WANDB_API_KEY": "${localEnv:WANDB_API_KEY}",
+        "WANDB_PROJECT": "deepseek-training",
+        "CUDA_VISIBLE_DEVICES": "all"
+    },
+    
+    "hostRequirements": {
+        "gpu": {
+            "count": 1,
+            "memory": "8gb"
+        }
+    },
+    
+    "runArgs": [
+        "--gpus", "all",
+        "--shm-size", "16g"
+    ]
+}

@@ -65,7 +65,7 @@ def unflatten_params(flat_params):
 def load_model(checkpoint_path: str):
     """Load model from checkpoint."""
     import mlx.core as mx
-    from tiny_trainer import TinyMTPModel, TinyModelConfig
+    from deepseek.mlx.tiny_trainer import TinyMTPModel, TinyModelConfig
     
     path = Path(checkpoint_path)
     

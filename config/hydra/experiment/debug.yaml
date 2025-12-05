@@ -1,0 +1,42 @@
+# DeepSeek Debug Configuration
+# For rapid testing and debugging
+# Small batch, verbose logging, minimal training
+
+defaults:
+  - gpu_optimization
+  - _self_
+
+model:
+  vocab_size: 32000
+  num_layers: 2
+  d_model: 256
+  num_heads: 4
+  d_latent: 64
+  d_rope: 16
+  d_hidden: 1024
+  
+  use_moe: false  # Simpler for debugging
+  dropout: 0.0
+
+training:
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  seq_len: 128
+  max_steps: 100
+  warmup_steps: 10
+  log_every: 1
+  save_every: 50
+  learning_rate: 1e-3
+
+compile:
+  enabled: false  # Faster iteration without compilation
+
+checkpointing:
+  enabled: false
+
+profiling:
+  enabled: true
+  log_interval: 10
+
+wandb:
+  enabled: false

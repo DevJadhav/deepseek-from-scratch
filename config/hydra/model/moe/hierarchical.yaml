@@ -1,0 +1,80 @@
+# Hierarchical MoE Routing Configuration
+# For memory-constrained scenarios (A100/consumer GPUs)
+# 
+# This config enables hierarchical 2-stage routing:
+# 1. Group selection: Select top groups first
+# 2. Expert selection within groups: Select experts within chosen groups
+#
+# This reduces memory requirements while maintaining model quality.
+
+defaults:
+  - _self_
+
+# Enable hierarchical routing for memory efficiency
+moe:
+  use_hierarchical_routing: true
+  
+  # Expert configuration
+  num_experts: 256            # Total routed experts
+  num_shared_experts: 1       # Always-active shared expert
+  top_k: 8                    # Experts per token
+  
+  # Hierarchical routing parameters
+  hierarchical_routing:
+    enabled: true
+    num_groups: 8             # Number of expert groups (256/8 = 32 experts per group)
+    experts_per_group: 32     # Computed: num_experts / num_groups
+    group_top_k: 2            # Top groups to select per token
+    expert_top_k_per_group: 4 # Top experts per selected group (total 8)
+    
+    # Group selection strategy
+    group_selection: "softmax"  # "softmax", "sigmoid"
+    
+    # Load balancing per group
+    group_load_balance: true
+    group_bias_lr: 0.001
+    group_bias_clamp: 2.0
+  
+  # Expert consolidation for further memory reduction
+  consolidation:
+    enabled: false            # Enable for very memory-constrained setups
+    factor: 4                 # Consolidate every N experts
+    
+  # Fine-grained expert dimensions (V3 spec)
+  expert_intermediate_dim: 2048
+  
+  # Load balancing (auxiliary-loss-free)
+  use_auxiliary_loss: false
+  bias_update_rate: 0.001
+  load_balance_ema_decay: 0.99
+  bias_clamp: 2.0
+  
+  # Capacity handling
+  capacity_factor: 1.25
+  min_capacity: 4
+  enable_token_dropping: true
+  
+  # Block-sparse computation
+  enable_megablocks: true
+  block_size: 64
+
+# Hardware-specific recommendations:
+# 
+# H100 80GB: 
+#   hierarchical_routing.enabled: false  # Full 256 experts feasible
+#   
+# A100 80GB:
+#   hierarchical_routing.enabled: true
+#   hierarchical_routing.num_groups: 8
+#   
+# A100 40GB:
+#   hierarchical_routing.enabled: true
+#   hierarchical_routing.num_groups: 16
+#   consolidation.enabled: true
+#   consolidation.factor: 2
+#
+# Consumer GPU (24GB):
+#   hierarchical_routing.enabled: true
+#   hierarchical_routing.num_groups: 32
+#   consolidation.enabled: true
+#   consolidation.factor: 4

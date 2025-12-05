@@ -1,0 +1,74 @@
+# Automatic Precision Detection Configuration
+# 
+# Automatically selects optimal precision based on hardware:
+# - H100/H200: FP8 (E4M3)
+# - A100: BF16
+# - Older/Consumer GPUs: FP16
+#
+# Use `training.precision.mode=auto` for automatic detection,
+# or override with `training.precision.mode=fp8|bf16|fp16|fp32`
+
+defaults:
+  - _self_
+
+precision:
+  # Precision mode: auto, fp8, bf16, fp16, fp32
+  mode: auto
+  
+  # FP8 Configuration (H100+ only)
+  fp8:
+    enabled: false              # Auto-enabled when mode=auto on H100
+    format: e4m3                # e4m3 (higher precision) or e5m2 (higher range)
+    tile_size: 128              # Tile size for per-tile scaling (128x128)
+    amax_history_len: 1024      # History length for dynamic scaling
+    delayed_scaling: true       # Use delayed scaling for stability
+    # Gradient format
+    gradient_format: e5m2       # Use E5M2 for gradients (larger range)
+    
+  # BF16 Configuration (A100+)
+  bf16:
+    enabled: false              # Auto-enabled when mode=auto on A100+
+    use_amp: true               # Use automatic mixed precision
+    
+  # FP16 Configuration (older/consumer GPUs)
+  fp16:
+    enabled: false              # Auto-enabled on older GPUs
+    use_amp: true
+    grad_scaler: true           # Required for FP16 AMP
+    initial_scale: 65536.0
+    growth_factor: 2.0
+    backoff_factor: 0.5
+    growth_interval: 2000
+    
+  # FP32 Configuration (fallback)
+  fp32:
+    enabled: false              # Pure FP32, no mixed precision
+    
+  # Common settings
+  loss_in_fp32: true            # Always compute loss in FP32
+  optimizer_in_fp32: true       # Master weights in FP32
+  gradient_clipping_in_fp32: true  # Clip gradients in FP32
+
+# Hardware detection thresholds (CUDA Compute Capability)
+hardware_detection:
+  fp8_min_compute: 90           # SM 9.0+ (H100, H200)
+  bf16_min_compute: 80          # SM 8.0+ (A100, RTX 3090+)
+  fp16_min_compute: 60          # SM 6.0+ (Pascal+)
+  
+  # Specific GPU mappings
+  gpu_precision_map:
+    H100: fp8
+    H200: fp8
+    A100: bf16
+    A10: bf16
+    RTX_4090: bf16
+    RTX_3090: bf16
+    V100: fp16
+    RTX_2080: fp16
+    T4: fp16
+    default: fp16
+
+# Warnings and fallbacks
+fallback:
+  warn_on_fallback: true        # Warn when falling back to lower precision
+  strict_mode: false            # Fail if requested precision not available

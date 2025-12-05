@@ -1,0 +1,99 @@
+# DeepSeek 109M Model Configuration
+# =================================
+# Small model for development and ablation studies
+# 
+# Target Hardware: Single A100 or consumer GPU (16GB+ VRAM)
+# Use Case: Development, ablation studies, quick experiments
+# Training Time: ~4-8 hours on single A100
+# Parameter Count: ~109M
+#
+# Usage:
+#   uv run python scripts/train.py model=deepseek_109m training=single_gpu
+#   uv run python scripts/train.py model=deepseek_109m experiment=ablation
+
+defaults:
+  - moe/default
+  - _self_
+
+# Model Architecture
+name: deepseek_109m
+vocab_size: 32000
+num_layers: 6
+d_model: 512
+num_heads: 8
+d_latent: 128             # KV compression dimension
+q_latent: 256             # Query compression dimension
+d_rope: 32                # RoPE dimension
+qk_nope_head_dim: 32
+qk_rope_head_dim: 32
+d_hidden: 2048            # FFN hidden dimension
+
+# Multi-Latent Attention (scaled down)
+mla:
+  enabled: true
+  kv_compression_dim: 128
+  query_compression_dim: 256
+  decoupled_rope: true
+  rope_theta: 10000.0
+  max_position_embeddings: 2048
+
+# MoE Configuration (small scale)
+moe:
+  use_moe: true
+  num_experts: 4          # Minimal expert count
+  num_shared_experts: 1
+  top_k: 2
+  expert_intermediate_dim: 512
+  use_auxiliary_loss: false
+  use_hierarchical_routing: false  # Not needed for small expert count
+  capacity_factor: 1.25
+  enable_megablocks: false  # Not worth overhead at this scale
+
+# Multi-Token Prediction
+mtp:
+  enabled: true
+  depth: 1
+  loss_weight: 0.3
+  dropout: 0.0
+
+# Dropout (disabled for small model stability)
+dropout: 0.0
+attention_dropout: 0.0
+hidden_dropout: 0.0
+
+# Initialization
+init_std: 0.02
+use_scaled_init: true
+
+# Recommended Training Configuration
+training:
+  batch_size: 16
+  micro_batch_size: 16
+  gradient_accumulation_steps: 2
+  effective_batch_size: 32
+  seq_len: 512
+  max_steps: 50000
+  warmup_steps: 500
+  learning_rate: 5.0e-4
+  weight_decay: 0.1
+  
+  # Precision
+  precision:
+    mode: auto            # Auto-detect (typically BF16 on A100, FP16 on consumer)
+  
+  # Distributed (single GPU recommended)
+  distributed:
+    enabled: false
+    strategy: none
+    
+  # Checkpointing
+  checkpoint:
+    save_steps: 5000
+    save_total_limit: 3
+    gradient_checkpointing: false  # Not needed for small model
+
+# Memory Requirements
+# ===================
+# FP16: ~1GB model + ~2GB activations + ~2GB optimizer = ~5GB
+# BF16: ~1GB model + ~2GB activations + ~4GB optimizer = ~7GB
+# Recommended: 16GB+ GPU for comfortable training with batch size 16

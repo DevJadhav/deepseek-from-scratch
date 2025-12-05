@@ -302,11 +302,11 @@ cargo test agent
 ```bash
 # PyTorch tests
 pytest tests/test_pytorch_v32.py -v
-pytest tests/test_phase6_production.py -v
+pytest tests/test_production_pytorch.py -v
 
 # MLX tests
 pytest tests/test_mlx_v32.py -v
-pytest tests/test_phase6_mlx.py -v
+pytest tests/test_production_mlx.py -v
 ```
 
 ---
@@ -337,8 +337,8 @@ pytest tests/test_phase6_mlx.py -v
 │   └── tests/
 │       ├── test_pytorch_v32.py
 │       ├── test_mlx_v32.py
-│       ├── test_phase6_production.py
-│       └── test_phase6_mlx.py
+│       ├── test_production_pytorch.py
+│       └── test_production_mlx.py
 │
 └── docs/                            # Documentation
     ├── 01-multi-query-attention.md

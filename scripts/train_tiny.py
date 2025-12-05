@@ -8,21 +8,27 @@ Main training script that handles:
 2. Model creation
 3. Training with MTP (Multi-Token Prediction)
 4. Checkpointing and logging
+5. Graceful error recovery with emergency checkpoints
 
 Usage:
     # Full training
-    python scripts/train_tiny.py --data-dir ./data/stories --output-dir ./checkpoints/tiny-mlx
-    
+    uv run python scripts/train_tiny.py --data-dir ./data/stories --output-dir ./checkpoints/tiny-mlx
+
     # Quick test (100 steps)
-    python scripts/train_tiny.py --data-dir ./data/stories --output-dir ./checkpoints/test --quick-test
-    
+    uv run python scripts/train_tiny.py --data-dir ./data/stories --output-dir ./checkpoints/test --quick-test
+
     # Resume from checkpoint
-    python scripts/train_tiny.py --resume ./checkpoints/tiny-mlx/step_5000
+    uv run python scripts/train_tiny.py --resume ./checkpoints/tiny-mlx/step_5000
+
+    # With FP8 mixed precision
+    uv run python scripts/train_tiny.py --data-dir ./data/stories --use-fp8
 """
 
 import argparse
 import json
+import logging
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -30,7 +36,39 @@ from pathlib import Path
 # Add project paths
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "deepseek-from-scratch-python" / "mlx_impl"))
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Global variable for graceful shutdown
+_trainer_instance = None
+_shutdown_requested = False
+
+
+def signal_handler(signum, frame):
+    """Handle interrupt signals for graceful shutdown."""
+    global _shutdown_requested
+    _shutdown_requested = True
+    logger.warning("Shutdown signal received, saving checkpoint...")
+    if _trainer_instance is not None:
+        try:
+            _trainer_instance.save_checkpoint("interrupted")
+            logger.info("Interrupt checkpoint saved successfully")
+        except Exception as e:
+            logger.error(f"Failed to save interrupt checkpoint: {e}")
+    sys.exit(0)
+
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 
 def main():
@@ -101,17 +139,18 @@ def main():
         args.eval_every = 25
         args.log_every = 10
         args.warmup_steps = 20
-        print("Quick test mode enabled (100 steps)")
+        logger.info("Quick test mode enabled (100 steps)")
     
     # Import MLX modules
     try:
         import mlx.core as mx
-        print(f"MLX version: {mx.__version__ if hasattr(mx, '__version__') else 'unknown'}")
+        mlx_version = mx.__version__ if hasattr(mx, '__version__') else 'unknown'
+        logger.info(f"MLX version: {mlx_version}")
     except ImportError:
-        print("Error: MLX not installed. Run: pip install mlx")
+        logger.error("MLX not installed. Run: pip install mlx")
         sys.exit(1)
     
-    from tiny_trainer import (
+    from deepseek.mlx.tiny_trainer import (
         TinyMTPModel, 
         TinyModelConfig, 
         TinyMLXTrainer,
@@ -122,21 +161,21 @@ def main():
     try:
         from transformers import AutoTokenizer
     except ImportError:
-        print("Error: transformers not installed. Run: pip install transformers")
+        logger.error("transformers not installed. Run: pip install transformers")
         sys.exit(1)
     
-    print("=" * 60)
-    print("Tiny DeepSeek Training")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Tiny DeepSeek Training")
+    logger.info("=" * 60)
     
     # Check data directory
     data_dir = Path(args.data_dir)
     if not data_dir.exists():
-        print(f"Error: Data directory not found: {data_dir}")
-        print("\nTo download TinyStories dataset, run:")
-        print("  python scripts/download_tinystories.py")
-        print("\nOr create sample data:")
-        print("  python scripts/download_tinystories.py --sample-only")
+        logger.error(f"Data directory not found: {data_dir}")
+        logger.info("To download TinyStories dataset, run:")
+        logger.info("  python scripts/download_tinystories.py")
+        logger.info("Or create sample data:")
+        logger.info("  python scripts/download_tinystories.py --sample-only")
         sys.exit(1)
     
     train_dir = data_dir / "train"
@@ -148,7 +187,7 @@ def main():
         valid_dir = None
     
     # Load tokenizer
-    print(f"\nLoading tokenizer: {args.tokenizer}")
+    logger.info(f"Loading tokenizer: {args.tokenizer}")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -156,7 +195,7 @@ def main():
     # Adjust vocab size to tokenizer
     actual_vocab_size = len(tokenizer)
     if args.vocab_size != actual_vocab_size:
-        print(f"Note: Adjusting vocab_size from {args.vocab_size} to {actual_vocab_size}")
+        logger.info(f"Adjusting vocab_size from {args.vocab_size} to {actual_vocab_size}")
         args.vocab_size = actual_vocab_size
     
     # Create model config
@@ -170,22 +209,24 @@ def main():
         mtp_k=args.mtp_k,
     )
     
-    print("\nModel Configuration:")
-    print(f"  vocab_size:    {config.vocab_size}")
-    print(f"  d_model:       {config.d_model}")
-    print(f"  num_heads:     {config.num_heads}")
-    print(f"  num_layers:    {config.num_layers}")
-    print(f"  num_experts:   {config.num_experts}")
-    print(f"  mtp_k:         {config.mtp_k}")
-    print(f"  max_seq_len:   {config.max_seq_len}")
+    logger.info("Model Configuration:")
+    logger.info(f"  vocab_size:    {config.vocab_size}")
+    logger.info(f"  d_model:       {config.d_model}")
+    logger.info(f"  num_heads:     {config.num_heads}")
+    logger.info(f"  num_layers:    {config.num_layers}")
+    logger.info(f"  num_experts:   {config.num_experts}")
+    logger.info(f"  mtp_k:         {config.mtp_k}")
+    logger.info(f"  max_seq_len:   {config.max_seq_len}")
     
     # Create model
+    global _trainer_instance
+    
     if args.resume:
-        print(f"\nResuming from: {args.resume}")
+        logger.info(f"Resuming from: {args.resume}")
         trainer, model, config = TinyMLXTrainer.load_checkpoint(args.resume)
         trainer.max_steps = args.max_steps  # Update max steps if changed
     else:
-        print("\nCreating new model...")
+        logger.info("Creating new model...")
         model = TinyMTPModel(config)
         
         trainer = TinyMLXTrainer(
@@ -203,12 +244,15 @@ def main():
             mtp_weight=args.mtp_weight,
         )
     
+    # Store trainer reference for signal handler
+    _trainer_instance = trainer
+    
     # Count parameters using the trainer's method
     total_params = trainer._count_params()
-    print(f"\nTotal parameters: {total_params:,} (~{total_params/1e6:.2f}M)")
+    logger.info(f"Total parameters: {total_params:,} (~{total_params/1e6:.2f}M)")
     
     # Create data loaders
-    print(f"\nLoading training data from: {train_dir}")
+    logger.info(f"Loading training data from: {train_dir}")
     train_loader = DataLoader(
         data_path=str(train_dir),
         tokenizer=tokenizer,
@@ -216,12 +260,12 @@ def main():
         max_seq_len=args.max_seq_len,
         shuffle=True,
     )
-    print(f"  Training samples: {len(train_loader.samples):,}")
-    print(f"  Batches per epoch: {len(train_loader):,}")
+    logger.info(f"  Training samples: {len(train_loader.samples):,}")
+    logger.info(f"  Batches per epoch: {len(train_loader):,}")
     
     valid_loader = None
     if valid_dir and valid_dir.exists():
-        print(f"\nLoading validation data from: {valid_dir}")
+        logger.info(f"Loading validation data from: {valid_dir}")
         valid_loader = DataLoader(
             data_path=str(valid_dir),
             tokenizer=tokenizer,
@@ -229,7 +273,7 @@ def main():
             max_seq_len=args.max_seq_len,
             shuffle=False,
         )
-        print(f"  Validation samples: {len(valid_loader.samples):,}")
+        logger.info(f"  Validation samples: {len(valid_loader.samples):,}")
     
     # Save config
     output_dir = Path(args.output_dir)
@@ -238,10 +282,10 @@ def main():
     config_path = output_dir / "training_config.json"
     with open(config_path, "w") as f:
         json.dump(vars(args), f, indent=2)
-    print(f"\nConfig saved to: {config_path}")
+    logger.info(f"Config saved to: {config_path}")
     
     # Start training
-    print("\n" + "=" * 60)
+    logger.info("=" * 60)
     start_time = time.time()
     
     try:
@@ -251,22 +295,34 @@ def main():
             pad_token_id=tokenizer.pad_token_id,
         )
     except KeyboardInterrupt:
-        print("\n\nTraining interrupted by user.")
-        print("Saving checkpoint...")
+        logger.warning("Training interrupted by user.")
+        logger.info("Saving checkpoint...")
         trainer.save_checkpoint("interrupted")
+    except Exception as e:
+        logger.error(f"Training failed with error: {e}")
+        logger.info("Attempting to save emergency checkpoint...")
+        try:
+            trainer.save_checkpoint("emergency")
+            logger.info("Emergency checkpoint saved successfully")
+        except Exception as save_error:
+            logger.error(f"Failed to save emergency checkpoint: {save_error}")
+        raise
+    finally:
+        # Clear trainer reference
+        _trainer_instance = None
     
     elapsed = time.time() - start_time
-    print(f"\nTotal training time: {elapsed/60:.1f} minutes")
+    logger.info(f"Total training time: {elapsed/60:.1f} minutes")
     
     # Final info
-    print("\n" + "=" * 60)
-    print("Training Complete!")
-    print("=" * 60)
-    print(f"\nCheckpoints saved to: {args.output_dir}")
-    print("\nTo run inference:")
-    print(f"  python scripts/inference.py --checkpoint {args.output_dir}/final --prompt 'Once upon a time'")
-    print("\nTo run in interactive mode:")
-    print(f"  python scripts/inference.py --checkpoint {args.output_dir}/final --interactive")
+    logger.info("=" * 60)
+    logger.info("Training Complete!")
+    logger.info("=" * 60)
+    logger.info(f"Checkpoints saved to: {args.output_dir}")
+    logger.info("To run inference:")
+    logger.info(f"  python scripts/inference.py --checkpoint {args.output_dir}/final --prompt 'Once upon a time'")
+    logger.info("To run in interactive mode:")
+    logger.info(f"  python scripts/inference.py --checkpoint {args.output_dir}/final --interactive")
 
 
 if __name__ == "__main__":

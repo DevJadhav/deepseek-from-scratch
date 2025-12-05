@@ -1,0 +1,44 @@
+# Local Development Environment Configuration
+# For local GPU or CPU development
+
+defaults:
+  - _self_
+
+# Environment
+environment: local
+platform: auto          # auto, cuda, mps, cpu
+
+# Resource Constraints
+resources:
+  max_gpu_memory_gb: 24
+  max_cpu_memory_gb: 64
+  num_workers: 4
+
+# Paths
+paths:
+  data_dir: ./data
+  checkpoint_dir: ./checkpoints
+  log_dir: ./logs
+  cache_dir: ./cache
+
+# Development Settings
+development:
+  debug_mode: false
+  profile_enabled: false
+  verbose_logging: false
+  deterministic: false
+
+# Compilation
+compile:
+  enabled: true
+  cache_dir: ~/.cache/torch_compile
+
+# Data Loading
+dataloader:
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+
+# W&B Settings (local)
+wandb:
+  mode: online

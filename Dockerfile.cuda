@@ -1,0 +1,61 @@
+# DeepSeek Training - CUDA Image
+# Base image with PyTorch, CUDA, and all training dependencies
+#
+# Build: docker build -f Dockerfile.cuda -t deepseek-training:cuda .
+# Run: docker run --gpus all -it deepseek-training:cuda
+
+ARG PYTHON_VERSION=3.10
+ARG CUDA_VERSION=12.1
+ARG UV_VERSION=0.4
+
+FROM nvidia/cuda:${CUDA_VERSION}.0-devel-ubuntu22.04
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-dev \
+    python3-pip \
+    git \
+    curl \
+    wget \
+    build-essential \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy project files
+COPY pyproject.toml uv.lock ./
+COPY deepseek-from-scratch-python/ ./deepseek-from-scratch-python/
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
+
+# Install dependencies
+RUN uv sync --extra cuda --extra dev
+
+# Install Flash Attention (requires CUDA)
+RUN uv pip install flash-attn --no-build-isolation
+
+# Set environment variables for training
+ENV CUDA_DEVICE_ORDER=PCI_BUS_ID
+ENV TOKENIZERS_PARALLELISM=false
+ENV WANDB_DIR=/workspace/wandb
+
+# Create directories for outputs
+RUN mkdir -p /workspace/checkpoints /workspace/logs /workspace/wandb
+
+# Default command
+CMD ["bash"]

@@ -1,0 +1,74 @@
+# Distributed Training Configuration
+# Multi-GPU training with DDP or FSDP
+# Target: Multi-GPU setup (2-8 GPUs)
+
+defaults:
+  - single_gpu
+  - _self_
+
+# Device Configuration
+num_gpus: 8
+distributed: true
+
+# Distributed Backend
+distributed_backend:
+  backend: nccl         # nccl, gloo, mpi
+  init_method: env://   # env://, tcp://, file://
+  world_size: 8
+  rank: 0               # Auto-assigned by launcher
+
+# Strategy
+strategy: ddp           # ddp, fsdp, deepspeed
+
+# DDP Configuration (when strategy=ddp)
+ddp:
+  find_unused_parameters: false
+  static_graph: true
+  gradient_as_bucket_view: true
+  broadcast_buffers: true
+
+# Communication
+communication:
+  overlap_comm_compute: true
+  bucket_cap_mb: 25
+  gradient_predivide_factor: 1.0
+
+# Batch Configuration (scaled for distributed)
+batch_size: 8           # Per-GPU batch size
+micro_batch_size: 8
+effective_batch_size: 256  # batch_size * num_gpus * accumulation_steps
+
+# Gradient Configuration
+gradient:
+  max_norm: 1.0
+  accumulation_steps: 4
+  sync_every_step: true
+
+# Checkpointing (distributed-aware)
+checkpoint:
+  save_steps: 1000
+  save_total_limit: 5
+  output_dir: ./checkpoints/distributed
+  save_optimizer: true
+  async_save: true
+  only_rank_zero: true
+
+# Logging
+logging:
+  log_steps: 10
+  only_rank_zero: true
+
+# Elastic Training
+elastic:
+  enabled: false
+  min_workers: 1
+  max_workers: 8
+  max_restarts: 3
+  rdzv_backend: c10d
+  rdzv_endpoint: null
+
+# Fault Tolerance  
+fault_tolerance:
+  checkpoint_on_sigterm: true
+  heartbeat_interval: 60
+  timeout_seconds: 1800

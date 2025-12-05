@@ -1,0 +1,65 @@
+# FSDP Training Configuration
+# Fully Sharded Data Parallel for large models
+# Target: Multi-GPU with limited memory
+
+defaults:
+  - distributed
+  - _self_
+
+# Strategy
+strategy: fsdp
+
+# FSDP Configuration
+fsdp:
+  # Sharding Strategy
+  sharding_strategy: FULL_SHARD  # FULL_SHARD, SHARD_GRAD_OP, NO_SHARD, HYBRID_SHARD
+  
+  # Mixed Precision Policy
+  mixed_precision:
+    param_dtype: bfloat16
+    reduce_dtype: float32
+    buffer_dtype: bfloat16
+    cast_forward_inputs: true
+  
+  # Auto Wrap Policy
+  auto_wrap_policy: transformer_layer  # transformer_layer, size_based, custom
+  min_num_params: 100000000  # For size_based wrapping
+  transformer_layer_cls: DeepseekTransformerBlock
+  
+  # CPU Offloading
+  cpu_offload:
+    enabled: false
+    offload_params: false
+    pin_memory: true
+  
+  # Memory Optimization
+  limit_all_gathers: true
+  use_orig_params: true
+  forward_prefetch: true
+  backward_prefetch: BACKWARD_PRE  # BACKWARD_PRE, BACKWARD_POST
+  
+  # Activation Checkpointing (with FSDP)
+  activation_checkpointing: true
+  checkpoint_impl: no_reentrant  # reentrant, no_reentrant
+  
+  # Sync Module States
+  sync_module_states: true
+
+# State Dict Configuration
+state_dict:
+  type: SHARDED_STATE_DICT  # FULL_STATE_DICT, LOCAL_STATE_DICT, SHARDED_STATE_DICT
+  offload_to_cpu: true
+  rank0_only: false
+
+# Checkpointing (FSDP-specific)
+checkpoint:
+  save_steps: 1000
+  output_dir: ./checkpoints/fsdp
+  use_distributed_checkpoint: true
+  async_save: true
+  
+# Gradient Clipping (FSDP-compatible)
+gradient:
+  max_norm: 1.0
+  clip_in_fp32: true
+  norm_type: 2.0

@@ -1,0 +1,58 @@
+# Cloud Environment Configuration
+# For cloud providers (AWS, GCP, Azure, Modal)
+
+defaults:
+  - _self_
+
+# Environment
+environment: cloud
+platform: cuda
+
+# Cloud Provider Configuration
+cloud:
+  provider: modal       # modal, aws, gcp, azure
+  region: us-east-1
+  instance_type: a100   # a100, h100, a10g
+  spot_instances: true
+  
+# Resource Constraints
+resources:
+  max_gpu_memory_gb: 80
+  max_cpu_memory_gb: 256
+  num_workers: 8
+
+# Paths (cloud storage)
+paths:
+  data_dir: /data       # Modal volume
+  checkpoint_dir: /checkpoints
+  log_dir: /logs
+  cache_dir: /cache
+
+# Cloud Storage (for persistence)
+storage:
+  backend: s3           # s3, gcs, azure_blob
+  bucket: deepseek-training
+  checkpoint_prefix: checkpoints/
+  data_prefix: data/
+  
+# Distributed Configuration  
+distributed:
+  backend: nccl
+  init_method: env://
+
+# Spot Instance Handling
+spot:
+  enabled: true
+  checkpoint_on_preemption: true
+  preemption_grace_period: 120
+
+# Data Loading
+dataloader:
+  num_workers: 8
+  pin_memory: true
+  prefetch_factor: 4
+
+# W&B Settings
+wandb:
+  mode: online
+  resume: allow

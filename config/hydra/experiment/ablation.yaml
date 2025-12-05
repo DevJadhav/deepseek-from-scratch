@@ -1,0 +1,82 @@
+# Ablation Study Experiment Configuration
+# Defaults for running ablation experiments
+# Includes reproducibility settings
+
+defaults:
+  - _self_
+
+# Experiment Metadata
+experiment:
+  name: ablation
+  description: "Ablation study experiment"
+  tags:
+    - ablation
+  
+# Reproducibility
+reproducibility:
+  seed: 42
+  seeds: [42, 123, 456]  # Multiple seeds for statistical significance
+  deterministic: true
+  benchmark: false
+  
+# Ablation Variants
+ablation:
+  # Attention ablation (MLA vs GQA vs MHA)
+  attention:
+    variants: [mla, gqa, mha]
+    default: mla
+    
+  # Expert count ablation
+  experts:
+    variants: [8, 64, 256]
+    default: 64
+    
+  # Load balancing ablation
+  load_balancing:
+    variants: [auxiliary_loss_free, auxiliary_loss]
+    default: auxiliary_loss_free
+    auxiliary_loss_weight: 0.01
+    
+  # MTP depth ablation
+  mtp_depth:
+    variants: [0, 1, 2, 3]
+    default: 2
+    
+  # Precision ablation
+  precision:
+    variants: [fp8, bf16, fp16]
+    default: bf16
+
+# Training Settings for Ablations
+training:
+  max_steps: 10000       # Shorter for ablations
+  warmup_steps: 500
+  eval_steps: 500
+  batch_size: 8
+  
+# Evaluation
+evaluation:
+  metrics:
+    - perplexity
+    - loss
+    - throughput
+    - memory_peak
+  eval_datasets:
+    - validation
+    
+# Logging
+logging:
+  log_steps: 50
+  save_ablation_results: true
+  results_dir: ./ablation_results
+  
+# W&B Integration
+wandb:
+  project: deepseek-ablations
+  group: ${experiment.name}
+  tags: ${experiment.tags}
+  
+# Resource Constraints
+resources:
+  max_gpu_memory_gb: 40
+  timeout_hours: 24

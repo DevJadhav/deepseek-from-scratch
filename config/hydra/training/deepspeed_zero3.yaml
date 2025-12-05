@@ -1,0 +1,149 @@
+# DeepSpeed ZeRO Stage 3 Configuration
+# Maximum memory efficiency with full parameter partitioning + offloading
+
+defaults:
+  - _self_
+
+name: deepspeed_zero3
+
+# DeepSpeed engine settings
+deepspeed:
+  enabled: true
+  
+  # Training batch settings
+  train_batch_size: 32
+  train_micro_batch_size_per_gpu: 2  # Smaller for memory
+  gradient_accumulation_steps: 16
+  
+  # ZeRO Stage 3: Full parameter partitioning
+  zero_optimization:
+    stage: 3
+    
+    # Optimizer state offloading
+    offload_optimizer:
+      device: cpu
+      pin_memory: true
+      buffer_count: 4
+      fast_init: true
+    
+    # Parameter offloading (ZeRO-3 specific)
+    offload_param:
+      device: cpu
+      pin_memory: true
+      buffer_count: 5
+      buffer_size: 1e8
+      max_in_cpu: 1e9
+    
+    # Gradient partitioning
+    contiguous_gradients: true
+    overlap_comm: true
+    reduce_scatter: true
+    reduce_bucket_size: 1e8
+    allgather_bucket_size: 1e8
+    
+    # Stage 3 specific settings
+    sub_group_size: 1e9
+    stage3_prefetch_bucket_size: 5e7
+    stage3_param_persistence_threshold: 1e4
+    stage3_max_live_parameters: 1e9
+    stage3_max_reuse_distance: 1e9
+    stage3_gather_16bit_weights_on_model_save: true
+  
+  # Optimizer settings
+  optimizer:
+    type: AdamW
+    params:
+      lr: 1e-4
+      betas: [0.9, 0.95]
+      eps: 1e-8
+      weight_decay: 0.01
+  
+  # Learning rate scheduler
+  scheduler:
+    type: WarmupDecayLR
+    params:
+      warmup_min_lr: 0
+      warmup_max_lr: 1e-4
+      warmup_num_steps: 1000
+      total_num_steps: 150000
+  
+  # Mixed precision
+  fp16:
+    enabled: false
+    loss_scale: 0
+    loss_scale_window: 1000
+    initial_scale_power: 16
+    hysteresis: 2
+    min_loss_scale: 1
+  
+  bf16:
+    enabled: true
+  
+  # Gradient clipping
+  gradient_clipping: 1.0
+  
+  # Activation checkpointing (required for large models with ZeRO-3)
+  activation_checkpointing:
+    partition_activations: true
+    cpu_checkpointing: true
+    contiguous_memory_optimization: true
+    number_checkpoints: null
+    synchronize_checkpoint_boundary: false
+    profile: false
+  
+  # Communication optimization
+  communication_data_type: fp16
+  prescale_gradients: false
+  gradient_predivide_factor: 1.0
+  sparse_gradients: false
+  
+  # ZeRO++ optimizations (if available)
+  zero3_init_flag: true
+  zero_hpz_partition_size: 1
+  zero_quantized_weights: false
+  zero_quantized_gradients: false
+  
+  # Memory efficiency
+  memory_efficient_linear: false
+  
+  # Tensor cores
+  flops_profiler:
+    enabled: false
+  
+  # Debugging
+  wall_clock_breakdown: false
+  dump_state: false
+
+# Training hyperparameters
+training:
+  max_steps: 150000
+  warmup_steps: 1000
+  save_steps: 5000
+  log_steps: 50
+  eval_steps: 1000
+  max_grad_norm: 1.0
+  
+  # Learning rate
+  learning_rate: 1e-4
+  min_learning_rate: 1e-6
+  lr_scheduler_type: cosine
+  
+  # Regularization
+  weight_decay: 0.01
+  dropout: 0.0
+
+# Distributed settings
+distributed:
+  data_parallel_size: auto
+  tensor_parallel_size: 1
+  pipeline_parallel_size: 1
+  expert_parallel_size: 1
+  sequence_parallel_size: 1
+  zero_stage: 3
+
+# Memory estimates for 150M model with ZeRO-3
+# - Model params: ~150M * 2 bytes (bf16) = 300MB
+# - Optimizer states: ~150M * 8 bytes = 1.2GB (partitioned)
+# - Gradients: ~150M * 2 bytes = 300MB (partitioned)
+# - Activations: Variable based on batch size
+# Expected memory per GPU with offloading: ~2-4GB

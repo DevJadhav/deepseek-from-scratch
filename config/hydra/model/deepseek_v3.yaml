@@ -1,0 +1,66 @@
+# DeepSeek-V3 Full Model Configuration
+# ====================================
+# Production configuration for DeepSeek-V3 architecture
+# 
+# Target Hardware: Multi-H100 cluster (64+ GPUs)
+# Use Case: Full V3 reproduction, production deployment
+# Training Time: ~2-4 weeks on 64x H100
+# Parameter Count: ~685B total (~37B active per token)
+#
+# WARNING: This configuration requires significant compute resources.
+# For experimentation, use deepseek_109m, deepseek_1b, or deepseek_7b.
+#
+# Usage:
+#   uv run torchrun --nnodes=8 --nproc_per_node=8 scripts/train.py model=deepseek_v3 training=dualpipe
+
+defaults:
+  - moe/default  # Full 256 experts for H100
+  - _self_
+
+# Model Architecture - DeepSeek-V3 Specification
+name: deepseek_v3
+vocab_size: 128256      # Extended vocabulary
+num_layers: 60          # 60 transformer layers
+d_model: 7168           # Hidden dimension
+num_heads: 56           # Number of attention heads
+d_latent: 512           # KV compression dimension (scaled from 128 to 512)
+q_latent: 1536          # Query compression dimension
+d_rope: 64              # RoPE dimension (decoupled)
+qk_nope_head_dim: 128   # Non-positional head dimension
+qk_rope_head_dim: 64    # RoPE head dimension
+d_hidden: 18432         # FFN hidden dimension
+
+# Multi-Latent Attention Configuration
+mla:
+  enabled: true
+  kv_compression_dim: 512
+  query_compression_dim: 1536
+  decoupled_rope: true
+  rope_theta: 10000.0
+  max_position_embeddings: 163840  # 160K context
+
+# MoE Configuration - V3 Specification
+use_moe: true
+num_experts: 256        # 256 routed experts
+num_shared_experts: 1   # 1 shared expert (always active)
+top_k: 8                # 8 experts per token
+expert_intermediate_dim: 2048  # Fine-grained experts
+expert_capacity_factor: 1.25
+use_auxiliary_loss: false  # Auxiliary-loss-free balancing
+bias_update_rate: 0.001
+load_balance_ema_decay: 0.99
+
+# Multi-Token Prediction
+mtp:
+  enabled: true
+  depth: 2              # D=2 prediction depth
+  loss_weight: 1.0
+  dropout: 0.0
+
+# Dropout (disabled for large-scale training)
+dropout: 0.0
+attention_dropout: 0.0
+hidden_dropout: 0.0
+
+# Weight Initialization
+init_std: 0.006         # Scaled initialization for large models

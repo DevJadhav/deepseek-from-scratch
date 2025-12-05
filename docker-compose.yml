@@ -1,0 +1,261 @@
+# DeepSeek-V3 Training - Docker Compose Configuration
+# 
+# Usage:
+#   docker compose up deepseek-dev         # Development environment
+#   docker compose up deepseek-training    # Single GPU training
+#   docker compose up --scale worker=4     # Multi-GPU distributed training
+#   docker compose up tensorboard          # Launch TensorBoard
+#   docker compose up jupyter              # Launch Jupyter Lab
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # Development Environment
+  # ==========================================================================
+  deepseek-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: deepseek-v3:dev
+    container_name: deepseek-dev
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - WANDB_PROJECT=${WANDB_PROJECT:-deepseek-training}
+      - WANDB_DIR=/workspace/wandb
+    volumes:
+      - .:/workspace
+      - ${DATA_DIR:-./data}:/workspace/data
+      - ${CHECKPOINT_DIR:-./checkpoints}:/workspace/checkpoints
+      - ${LOG_DIR:-./logs}:/workspace/logs
+      - wandb-cache:/workspace/wandb
+    ports:
+      - "8888:8888"   # Jupyter
+      - "6006:6006"   # TensorBoard
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+    command: bash
+    networks:
+      - deepseek-network
+
+  # ==========================================================================
+  # Single GPU Training
+  # ==========================================================================
+  deepseek-training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+    image: deepseek-v3:training
+    container_name: deepseek-training
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - WANDB_PROJECT=${WANDB_PROJECT:-deepseek-training}
+      - WANDB_DIR=/workspace/wandb
+      - MASTER_ADDR=localhost
+      - MASTER_PORT=29500
+      - WORLD_SIZE=1
+      - LOCAL_RANK=0
+    volumes:
+      - ${DATA_DIR:-./data}:/workspace/data:ro
+      - ${CHECKPOINT_DIR:-./checkpoints}:/workspace/checkpoints
+      - ${LOG_DIR:-./logs}:/workspace/logs
+      - wandb-cache:/workspace/wandb
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - deepseek-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import torch; assert torch.cuda.is_available()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # Distributed Training Master
+  # ==========================================================================
+  master:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+    image: deepseek-v3:training
+    container_name: deepseek-master
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - WANDB_PROJECT=${WANDB_PROJECT:-deepseek-training}
+      - MASTER_ADDR=master
+      - MASTER_PORT=29500
+      - WORLD_SIZE=${WORLD_SIZE:-4}
+      - RANK=0
+      - LOCAL_RANK=0
+      - NCCL_DEBUG=INFO
+      - NCCL_SOCKET_IFNAME=eth0
+    volumes:
+      - ${DATA_DIR:-./data}:/workspace/data:ro
+      - ${CHECKPOINT_DIR:-./checkpoints}:/workspace/checkpoints
+      - ${LOG_DIR:-./logs}:/workspace/logs
+      - wandb-cache:/workspace/wandb
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - deepseek-network
+    ports:
+      - "29500:29500"
+
+  # ==========================================================================
+  # Distributed Training Workers
+  # ==========================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+    image: deepseek-v3:training
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - WANDB_PROJECT=${WANDB_PROJECT:-deepseek-training}
+      - MASTER_ADDR=master
+      - MASTER_PORT=29500
+      - WORLD_SIZE=${WORLD_SIZE:-4}
+      - NCCL_DEBUG=INFO
+      - NCCL_SOCKET_IFNAME=eth0
+    volumes:
+      - ${DATA_DIR:-./data}:/workspace/data:ro
+      - ${CHECKPOINT_DIR:-./checkpoints}:/workspace/checkpoints
+      - ${LOG_DIR:-./logs}:/workspace/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - deepseek-network
+    depends_on:
+      - master
+
+  # ==========================================================================
+  # TensorBoard Service
+  # ==========================================================================
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: deepseek-tensorboard
+    volumes:
+      - ${LOG_DIR:-./logs}:/logs:ro
+    ports:
+      - "6006:6006"
+    command: tensorboard --logdir=/logs --host=0.0.0.0 --port=6006
+    networks:
+      - deepseek-network
+
+  # ==========================================================================
+  # Jupyter Lab Service
+  # ==========================================================================
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: deepseek-v3:dev
+    container_name: deepseek-jupyter
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    volumes:
+      - .:/workspace
+      - ${DATA_DIR:-./data}:/workspace/data
+      - ${CHECKPOINT_DIR:-./checkpoints}:/workspace/checkpoints
+    ports:
+      - "8888:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+    networks:
+      - deepseek-network
+
+  # ==========================================================================
+  # Inference Server
+  # ==========================================================================
+  inference:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: inference
+    image: deepseek-v3:inference
+    container_name: deepseek-inference
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    volumes:
+      - ${CHECKPOINT_DIR:-./checkpoints}:/workspace/checkpoints:ro
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - deepseek-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  deepseek-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  wandb-cache:
+    driver: local

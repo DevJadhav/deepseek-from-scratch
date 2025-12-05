@@ -1,0 +1,42 @@
+# DeepSeek Training Configuration
+# Main configuration file with defaults
+#
+# Usage:
+#   uv run python scripts/train.py                    # Default training
+#   uv run python scripts/train.py model=deepseek_1b  # 1B model
+#   uv run python scripts/train.py training=fsdp     # FSDP training
+#   uv run python scripts/train.py experiment=ablation # Ablation study
+#   uv run python scripts/train.py -m training.batch_size=8,16,32  # Multirun
+
+defaults:
+  - model: deepseek_109m
+  - training: single_gpu
+  - optimizer: adamw
+  - data: fineweb
+  - logging: wandb
+  - environment: local
+  - experiment: null    # Optional experiment config
+  - _self_
+
+# Hydra Configuration
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    chdir: false
+  verbose: false
+
+# Experiment Tracking
+experiment:
+  name: deepseek-training
+  version: null         # Auto-incremented if null
+  description: "DeepSeek model training"
+  
+# Global Overrides
+globals:
+  seed: 42
+  debug: false
+  dry_run: false        # Validate config without training

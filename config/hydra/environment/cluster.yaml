@@ -1,0 +1,54 @@
+# Cluster Environment Configuration
+# For HPC clusters with Slurm or similar
+
+defaults:
+  - _self_
+
+# Environment
+environment: cluster
+platform: cuda
+
+# Cluster Configuration
+cluster:
+  scheduler: slurm      # slurm, pbs, lsf
+  partition: gpu
+  nodes: 1
+  gpus_per_node: 8
+  cpus_per_task: 8
+  memory_per_node: 512G
+  time_limit: "48:00:00"
+  
+# Resource Constraints
+resources:
+  max_gpu_memory_gb: 80  # A100-80GB
+  max_cpu_memory_gb: 512
+  num_workers: 8
+
+# Paths (cluster-specific)
+paths:
+  data_dir: /scratch/data
+  checkpoint_dir: /scratch/checkpoints/${experiment.name}
+  log_dir: /scratch/logs/${experiment.name}
+  cache_dir: /scratch/cache
+
+# Distributed Configuration
+distributed:
+  backend: nccl
+  init_method: env://
+  
+# Data Loading (optimized for cluster)
+dataloader:
+  num_workers: 8
+  pin_memory: true
+  prefetch_factor: 4
+  persistent_workers: true
+
+# Compilation
+compile:
+  enabled: true
+  cache_dir: /scratch/.cache/torch_compile
+
+# W&B Settings
+wandb:
+  mode: online
+  sync_tensorboard: true

@@ -1,0 +1,128 @@
+# DeepSeek 7B Model Configuration
+# ================================
+# Large-scale model for production validation
+# 
+# Target Hardware: H100 cluster (8-64 GPUs) or 8x A100 80GB
+# Use Case: Production validation, scaling studies
+# Training Time: ~3-7 days on 8x H100
+# Parameter Count: ~7B total (~1.4B active per token with MoE)
+#
+# Usage:
+#   uv run torchrun --nproc_per_node=8 scripts/train.py model=deepseek_7b training=dualpipe
+#   uv run python scripts/train.py model=deepseek_7b training=fsdp
+
+defaults:
+  - moe/hierarchical  # Use hierarchical routing for memory efficiency
+  - _self_
+
+# Model Architecture
+name: deepseek_7b
+vocab_size: 128256        # Extended vocabulary (V3 style)
+num_layers: 32
+d_model: 4096
+num_heads: 32
+d_latent: 512             # KV compression dimension (V3 spec)
+q_latent: 1024            # Query compression dimension
+d_rope: 64                # RoPE dimension
+qk_nope_head_dim: 128
+qk_rope_head_dim: 64
+d_hidden: 11008           # FFN hidden dimension
+
+# Multi-Latent Attention (V3 style)
+mla:
+  enabled: true
+  kv_compression_dim: 512
+  query_compression_dim: 1024
+  decoupled_rope: true
+  rope_theta: 10000.0
+  max_position_embeddings: 32768  # 32K context
+
+# MoE Configuration (large scale - 64 experts)
+moe:
+  use_moe: true
+  num_experts: 64           # 64 routed experts
+  num_shared_experts: 1
+  top_k: 6                  # 6 experts per token
+  expert_intermediate_dim: 1536
+  use_auxiliary_loss: false
+  use_hierarchical_routing: true   # Enable for memory efficiency
+  hierarchical_routing:
+    enabled: true
+    num_groups: 8           # 8 groups of 8 experts
+    group_top_k: 2
+    expert_top_k_per_group: 3
+  capacity_factor: 1.25
+  bias_update_rate: 0.001
+  load_balance_ema_decay: 0.99
+  enable_megablocks: true
+
+# Multi-Token Prediction
+mtp:
+  enabled: true
+  depth: 2                  # D=2 for larger models
+  loss_weight: 0.7
+  dropout: 0.0
+
+# Dropout (disabled)
+dropout: 0.0
+attention_dropout: 0.0
+hidden_dropout: 0.0
+
+# Weight Initialization (scaled for large model)
+init_std: 0.01
+use_scaled_init: true
+
+# Recommended Training Configuration
+training:
+  batch_size: 2
+  micro_batch_size: 1
+  gradient_accumulation_steps: 16
+  effective_batch_size: 256   # 2 * 8 GPUs * 16 accumulation
+  seq_len: 4096
+  max_steps: 500000
+  warmup_steps: 5000
+  learning_rate: 1.5e-4
+  weight_decay: 0.1
+  
+  precision:
+    mode: auto              # FP8 on H100, BF16 on A100
+    fp8:
+      enabled: true         # Use FP8 if available
+      format: e4m3
+
+  distributed:
+    enabled: true
+    strategy: dualpipe      # DualPipe for 7B
+    world_size: 8
+    tensor_parallel_size: 1
+    pipeline_parallel_size: 2  # 2-way pipeline
+    expert_parallel_size: 4    # 4-way expert parallel
+    
+    fsdp:
+      sharding_strategy: HYBRID_SHARD  # Better for multi-node
+      cpu_offload: false
+      
+    dualpipe:
+      num_micro_batches: 8
+      interleave_schedule: true
+      
+  checkpoint:
+    save_steps: 2000
+    save_total_limit: 3
+    gradient_checkpointing: true
+    checkpoint_every_n_layers: 2
+    use_distributed_checkpoint: true
+    async_save: true
+
+# Memory Requirements (per GPU)
+# =============================
+# With FSDP sharding on 8 GPUs:
+#   Model shards: ~875MB per GPU
+#   Activations: ~8-12GB with gradient checkpointing
+#   Optimizer states: ~1.7GB per GPU (sharded)
+#   Total: ~12-16GB per GPU
+#
+# Recommended:
+#   - H100 80GB: Full precision, larger batches
+#   - A100 80GB: BF16, gradient checkpointing required
+#   - A100 40GB: Requires CPU offloading or larger cluster
