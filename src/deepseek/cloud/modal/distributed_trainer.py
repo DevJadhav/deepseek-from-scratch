@@ -359,92 +359,95 @@ def train_single_gpu(
     
     try:  # Checkpoint recovery wrapper
         while global_step < max_steps:
-        for batch in train_loader:
-            input_ids = batch["input_ids"].to(device)
-            attention_mask = batch.get("attention_mask", torch.ones_like(input_ids)).to(device)
-            
-            # Forward pass with AMP
-            with torch.amp.autocast(device_type="cuda", enabled=scaler is not None):
-                logits = model(input_ids, mask=attention_mask)
+            for batch in train_loader:
+                if global_step >= max_steps:
+                    break
+                    
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch.get("attention_mask", torch.ones_like(input_ids)).to(device)
                 
-                # Causal LM loss
-                shift_logits = logits[:, :-1, :].contiguous()
-                shift_labels = input_ids[:, 1:].contiguous()
-                loss = F.cross_entropy(
-                    shift_logits.view(-1, model_config["vocab_size"]),
-                    shift_labels.view(-1),
-                    ignore_index=-100,
-                )
-                loss = loss / grad_accum
-            
-            # Backward pass
-            if scaler:
-                scaler.scale(loss).backward()
-            else:
-                loss.backward()
-            
-            total_loss += loss.item() * grad_accum
-            
-            # Optimizer step
-            if (global_step + 1) % grad_accum == 0:
+                # Forward pass with AMP
+                with torch.amp.autocast(device_type="cuda", enabled=scaler is not None):
+                    logits = model(input_ids, mask=attention_mask)
+                    
+                    # Causal LM loss
+                    shift_logits = logits[:, :-1, :].contiguous()
+                    shift_labels = input_ids[:, 1:].contiguous()
+                    loss = F.cross_entropy(
+                        shift_logits.view(-1, model_config["vocab_size"]),
+                        shift_labels.view(-1),
+                        ignore_index=-100,
+                    )
+                    loss = loss / grad_accum
+                
+                # Backward pass
                 if scaler:
-                    scaler.unscale_(optimizer)
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), training_config.get("max_grad_norm", 1.0))
-                    scaler.step(optimizer)
-                    scaler.update()
+                    scaler.scale(loss).backward()
                 else:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), training_config.get("max_grad_norm", 1.0))
-                    optimizer.step()
-                optimizer.zero_grad()
-            
-            global_step += 1
-            pbar.update(1)
-            
-            # Logging
-            if global_step % log_steps == 0:
-                avg_loss = total_loss / log_steps
-                elapsed = time.time() - start_time
-                steps_per_sec = global_step / elapsed
+                    loss.backward()
                 
-                metrics = {
-                    "step": global_step,
-                    "loss": avg_loss,
-                    "steps_per_sec": steps_per_sec,
-                    "elapsed_time": elapsed,
-                }
-                metrics_history.append(metrics)
+                total_loss += loss.item() * grad_accum
                 
-                # Use structured logging instead of pbar.set_postfix
-                training_logger.log_step(
-                    step=global_step,
-                    loss=avg_loss,
-                    throughput=steps_per_sec,
-                )
-                pbar.set_postfix(loss=f"{avg_loss:.4f}", sps=f"{steps_per_sec:.2f}")
-                total_loss = 0.0
-            
-            # Save checkpoint
-            if global_step % save_steps == 0:
-                ckpt_path = Path(checkpoint_dir) / f"step_{global_step}"
-                ckpt_path.mkdir(parents=True, exist_ok=True)
+                # Optimizer step
+                if (global_step + 1) % grad_accum == 0:
+                    if scaler:
+                        scaler.unscale_(optimizer)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), training_config.get("max_grad_norm", 1.0))
+                        scaler.step(optimizer)
+                        scaler.update()
+                    else:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), training_config.get("max_grad_norm", 1.0))
+                        optimizer.step()
+                    optimizer.zero_grad()
                 
-                torch.save({
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "global_step": global_step,
-                    "config": model_config,
-                }, ckpt_path / "checkpoint.pt")
+                global_step += 1
+                pbar.update(1)
                 
-                training_logger.log_checkpoint_saved(str(ckpt_path), step=global_step)
+                # Logging
+                if global_step % log_steps == 0:
+                    avg_loss = total_loss / log_steps
+                    elapsed = time.time() - start_time
+                    steps_per_sec = global_step / elapsed
+                    
+                    metrics = {
+                        "step": global_step,
+                        "loss": avg_loss,
+                        "steps_per_sec": steps_per_sec,
+                        "elapsed_time": elapsed,
+                    }
+                    metrics_history.append(metrics)
+                    
+                    # Use structured logging instead of pbar.set_postfix
+                    training_logger.log_step(
+                        step=global_step,
+                        loss=avg_loss,
+                        throughput=steps_per_sec,
+                    )
+                    pbar.set_postfix(loss=f"{avg_loss:.4f}", sps=f"{steps_per_sec:.2f}")
+                    total_loss = 0.0
                 
-                # Commit to Modal volume
-                try:
-                    checkpoint_volume.commit()
-                except Exception as e:
-                    logger.warning("checkpoint_commit_failed", error=str(e), step=global_step)
-            
-            if global_step >= max_steps:
-                break
+                # Save checkpoint
+                if global_step % save_steps == 0:
+                    ckpt_path = Path(checkpoint_dir) / f"step_{global_step}"
+                    ckpt_path.mkdir(parents=True, exist_ok=True)
+                    
+                    torch.save({
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "global_step": global_step,
+                        "config": model_config,
+                    }, ckpt_path / "checkpoint.pt")
+                    
+                    training_logger.log_checkpoint_saved(str(ckpt_path), step=global_step)
+                    
+                    # Commit to Modal volume
+                    try:
+                        checkpoint_volume.commit()
+                    except Exception as e:
+                        logger.warning("checkpoint_commit_failed", error=str(e), step=global_step)
+                
+                if global_step >= max_steps:
+                    break
     
     except Exception as e:
         # Emergency checkpoint on failure

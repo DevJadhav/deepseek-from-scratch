@@ -8,7 +8,7 @@ use candle_core::{Device, DType, Tensor};
 use candle_nn::{VarBuilder, VarMap};
 
 // Import the MoE module
-use deepseek_from_scratch_in_rust::model::moe::{
+use deepseek_rust::model::moe::{
     DeepSeekMoE,
     DeepSeekMoEV3,
     DeepSeekMoEV3Config,

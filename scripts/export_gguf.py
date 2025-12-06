@@ -119,6 +119,39 @@ class GGUFWriter:
         """Add a tensor to the GGUF file."""
         self.tensors.append((name, data, dtype))
 
+    def _get_quantized_size(self, n_elements: int, dtype: GGMLType) -> int:
+        """Calculate the size of quantized data in bytes."""
+        if dtype == GGMLType.F32:
+            return n_elements * 4
+        elif dtype == GGMLType.F16:
+            return n_elements * 2
+        elif dtype == GGMLType.Q8_0:
+            # Q8_0: 32 elements per block, 2 bytes scale + 32 bytes data = 34 bytes per block
+            n_blocks = (n_elements + 31) // 32
+            return n_blocks * 34
+        elif dtype == GGMLType.Q4_0:
+            # Q4_0: 32 elements per block, 2 bytes scale + 16 bytes data = 18 bytes per block
+            n_blocks = (n_elements + 31) // 32
+            return n_blocks * 18
+        elif dtype == GGMLType.Q4_K:
+            # Q4_K: 256 elements per superblock
+            # 2 (d) + 2 (dmin) + 12 (scales_mins) + 128 (data) = 144 bytes
+            n_superblocks = (n_elements + 255) // 256
+            return n_superblocks * 144
+        elif dtype == GGMLType.Q5_K:
+            # Q5_K: 256 elements per superblock
+            # 2 (d) + 2 (dmin) + 12 (scales_mins) + 128 (low) + 32 (high) = 176 bytes
+            n_superblocks = (n_elements + 255) // 256
+            return n_superblocks * 176
+        elif dtype == GGMLType.Q6_K:
+            # Q6_K: 256 elements per superblock
+            # 2 (d) + 16 (scales) + 128 (low) + 64 (high) = 210 bytes
+            n_superblocks = (n_elements + 255) // 256
+            return n_superblocks * 210
+        else:
+            # Default to F16 size
+            return n_elements * 2
+
     def _write_string(self, f, s: str) -> None:
         """Write a GGUF string (length + bytes)."""
         encoded = s.encode("utf-8")
@@ -148,6 +181,107 @@ class GGUFWriter:
         else:
             raise ValueError(f"Unsupported value type: {type(value)}")
 
+    def _write_quantized_q8_0(self, f, data: np.ndarray) -> int:
+        """Write Q8_0 quantized data and return bytes written."""
+        quantized, scales = quantize_q8_0(data)
+        n_blocks = quantized.shape[0]
+
+        bytes_written = 0
+        for i in range(n_blocks):
+            # Write scale (fp16)
+            f.write(scales[i].tobytes())
+            bytes_written += 2
+            # Write 32 int8 values
+            f.write(quantized[i].tobytes())
+            bytes_written += 32
+
+        return bytes_written
+
+    def _write_quantized_q4_0(self, f, data: np.ndarray) -> int:
+        """Write Q4_0 quantized data and return bytes written."""
+        packed, scales = quantize_q4_0(data)
+        n_blocks = packed.shape[0]
+
+        bytes_written = 0
+        for i in range(n_blocks):
+            # Write scale (fp16)
+            f.write(scales[i].tobytes())
+            bytes_written += 2
+            # Write 16 packed bytes (32 values as nibbles)
+            f.write(packed[i].tobytes())
+            bytes_written += 16
+
+        return bytes_written
+
+    def _write_quantized_q4_k(self, f, data: np.ndarray) -> int:
+        """Write Q4_K quantized data and return bytes written."""
+        packed_quants, d, dmin, scales_mins = quantize_q4_k(data)
+        n_superblocks = packed_quants.shape[0]
+
+        bytes_written = 0
+        for i in range(n_superblocks):
+            # Write d (fp16)
+            f.write(d[i].tobytes())
+            bytes_written += 2
+            # Write dmin (fp16)
+            f.write(dmin[i].tobytes())
+            bytes_written += 2
+            # Write scales_mins (12 bytes)
+            f.write(scales_mins[i].tobytes())
+            bytes_written += 12
+            # Write packed quants (128 bytes)
+            f.write(packed_quants[i].tobytes())
+            bytes_written += 128
+
+        return bytes_written
+
+    def _write_quantized_q5_k(self, f, data: np.ndarray) -> int:
+        """Write Q5_K quantized data and return bytes written."""
+        packed_low, packed_high, d, dmin, scales_mins = quantize_q5_k(data)
+        n_superblocks = packed_low.shape[0]
+
+        bytes_written = 0
+        for i in range(n_superblocks):
+            # Write d (fp16)
+            f.write(d[i].tobytes())
+            bytes_written += 2
+            # Write dmin (fp16)
+            f.write(dmin[i].tobytes())
+            bytes_written += 2
+            # Write scales_mins (12 bytes)
+            f.write(scales_mins[i].tobytes())
+            bytes_written += 12
+            # Write packed low bits (128 bytes)
+            f.write(packed_low[i].tobytes())
+            bytes_written += 128
+            # Write packed high bits (32 bytes)
+            f.write(packed_high[i].tobytes())
+            bytes_written += 32
+
+        return bytes_written
+
+    def _write_quantized_q6_k(self, f, data: np.ndarray) -> int:
+        """Write Q6_K quantized data and return bytes written."""
+        packed_low, packed_high, d, scales = quantize_q6_k(data)
+        n_superblocks = packed_low.shape[0]
+
+        bytes_written = 0
+        for i in range(n_superblocks):
+            # Write d (fp16)
+            f.write(d[i].tobytes())
+            bytes_written += 2
+            # Write scales (16 int8)
+            f.write(scales[i].tobytes())
+            bytes_written += 16
+            # Write packed low bits (128 bytes)
+            f.write(packed_low[i].tobytes())
+            bytes_written += 128
+            # Write packed high bits (64 bytes)
+            f.write(packed_high[i].tobytes())
+            bytes_written += 64
+
+        return bytes_written
+
     def write(self) -> None:
         """Write the GGUF file."""
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,10 +303,9 @@ class GGUFWriter:
             tensor_infos = []
 
             for name, data, dtype in self.tensors:
-                # Calculate padded data size
-                data_size = data.nbytes
-                if dtype == GGMLType.F16:
-                    data_size = data.size * 2
+                # Calculate quantized data size
+                n_elements = data.size
+                data_size = self._get_quantized_size(n_elements, dtype)
 
                 # Align to 32 bytes
                 padding = (32 - (data_size % 32)) % 32
@@ -202,7 +335,7 @@ class GGUFWriter:
             padding = (32 - (current_pos % 32)) % 32
             f.write(b"\x00" * padding)
 
-            # Write tensor data
+            # Write tensor data with proper quantization
             for _name, data, dtype in self.tensors:
                 if dtype == GGMLType.F16:
                     data_f16 = data.astype(np.float16)
@@ -212,9 +345,18 @@ class GGUFWriter:
                     data_f32 = data.astype(np.float32)
                     f.write(data_f32.tobytes())
                     data_size = data_f32.nbytes
+                elif dtype == GGMLType.Q8_0:
+                    data_size = self._write_quantized_q8_0(f, data)
+                elif dtype == GGMLType.Q4_0:
+                    data_size = self._write_quantized_q4_0(f, data)
+                elif dtype == GGMLType.Q4_K:
+                    data_size = self._write_quantized_q4_k(f, data)
+                elif dtype == GGMLType.Q5_K:
+                    data_size = self._write_quantized_q5_k(f, data)
+                elif dtype == GGMLType.Q6_K:
+                    data_size = self._write_quantized_q6_k(f, data)
                 else:
-                    # For quantized types, we'd need actual quantization
-                    # For now, fall back to F16
+                    # Unknown quantized types fall back to F16
                     data_f16 = data.astype(np.float16)
                     f.write(data_f16.tobytes())
                     data_size = data_f16.nbytes
@@ -224,14 +366,16 @@ class GGUFWriter:
                 f.write(b"\x00" * padding)
 
 
-def quantize_q8_0(data: np.ndarray) -> np.ndarray:
+def quantize_q8_0(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Quantize to Q8_0 format (8-bit with block scaling).
 
     Q8_0 uses 32-element blocks with a single FP16 scale factor.
     Each element is quantized to int8.
+
+    Returns:
+        Tuple of (quantized_data, scales)
     """
     # Reshape to blocks of 32
-    original_shape = data.shape
     flat = data.flatten().astype(np.float32)
 
     # Pad to multiple of 32
@@ -242,26 +386,25 @@ def quantize_q8_0(data: np.ndarray) -> np.ndarray:
     blocks = flat.reshape(-1, 32)
 
     # Compute scales (max abs value per block)
-    scales = np.max(np.abs(blocks), axis=1, keepdims=True)
-    scales = np.where(scales == 0, 1.0, scales)  # Avoid division by zero
+    # For all-zero blocks, use 1.0 to avoid division by zero and indicate "no data"
+    scales_raw = np.max(np.abs(blocks), axis=1)
+    scales = np.where(scales_raw == 0, np.float32(1.0), scales_raw).astype(np.float16)
 
     # Quantize to int8
-    quantized = np.round(blocks / scales * 127).astype(np.int8)
+    quantized = np.round(blocks / scales[:, np.newaxis].astype(np.float32) * 127).clip(-128, 127).astype(np.int8)
 
-    # Pack: scale (f16) + 32 x int8
-    # This is a simplified version - actual GGML packing is more complex
-    return quantized.reshape(original_shape) if pad_size == 0 else quantized.flatten()[
-        : -pad_size
-    ].reshape(original_shape)
+    return quantized, scales
 
 
-def quantize_q4_0(data: np.ndarray) -> np.ndarray:
+def quantize_q4_0(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Quantize to Q4_0 format (4-bit with block scaling).
 
     Q4_0 uses 32-element blocks with a single FP16 scale factor.
     Each element is quantized to 4 bits (packed 2 per byte).
+
+    Returns:
+        Tuple of (quantized_data, scales)
     """
-    # Simplified Q4_0 - actual implementation needs proper nibble packing
     flat = data.flatten().astype(np.float32)
 
     # Pad to multiple of 32
@@ -270,18 +413,285 @@ def quantize_q4_0(data: np.ndarray) -> np.ndarray:
         flat = np.pad(flat, (0, pad_size), mode="constant", constant_values=0)
 
     blocks = flat.reshape(-1, 32)
+    n_blocks = blocks.shape[0]
 
-    # Compute scales
-    scales = np.max(np.abs(blocks), axis=1, keepdims=True)
-    scales = np.where(scales == 0, 1.0, scales)
+    # Compute scales (max abs value per block)
+    scales = np.max(np.abs(blocks), axis=1).astype(np.float16)
+    scales_safe = np.where(scales == 0, np.float16(1.0), scales)
 
     # Quantize to 4 bits (-8 to 7)
-    quantized = np.round(blocks / scales * 7).clip(-8, 7).astype(np.int8)
+    quantized = np.round(blocks / scales_safe[:, np.newaxis] * 7).clip(-8, 7).astype(np.int8)
 
-    original_shape = data.shape
-    return quantized.reshape(original_shape) if pad_size == 0 else quantized.flatten()[
-        : -pad_size
-    ].reshape(original_shape)
+    # Pack nibbles: 2 values per byte
+    # Low nibble = first value + 8, High nibble = second value + 8
+    packed = np.zeros((n_blocks, 16), dtype=np.uint8)
+    for i in range(16):
+        low = (quantized[:, 2 * i] + 8).astype(np.uint8)
+        high = (quantized[:, 2 * i + 1] + 8).astype(np.uint8)
+        packed[:, i] = low | (high << 4)
+
+    return packed, scales
+
+
+def quantize_q4_k(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Quantize to Q4_K format (4-bit K-quant with superblock scaling).
+
+    Q4_K uses 256-element superblocks with:
+    - 1 FP16 d (superblock scale)
+    - 1 FP16 dmin (superblock min)
+    - 12 bytes of scales/mins for 8 sub-blocks (6 bits each, packed)
+    - 128 bytes of quantized data (4-bit packed)
+
+    Each superblock contains 8 sub-blocks of 32 elements.
+
+    Returns:
+        Tuple of (packed_quants, d, dmin, scales_mins)
+    """
+    flat = data.flatten().astype(np.float32)
+
+    # Pad to multiple of 256 (superblock size)
+    pad_size = (256 - (len(flat) % 256)) % 256
+    if pad_size > 0:
+        flat = np.pad(flat, (0, pad_size), mode="constant", constant_values=0)
+
+    superblocks = flat.reshape(-1, 256)
+    n_superblocks = superblocks.shape[0]
+
+    # Reshape each superblock into 8 sub-blocks of 32 elements
+    sub_blocks = superblocks.reshape(n_superblocks, 8, 32)
+
+    # Compute per-sub-block scales and mins
+    sub_maxes = np.max(sub_blocks, axis=2)  # (n_superblocks, 8)
+    sub_mins = np.min(sub_blocks, axis=2)   # (n_superblocks, 8)
+
+    # Superblock d and dmin: max of sub-block ranges
+    d = np.max(sub_maxes - sub_mins, axis=1).astype(np.float16)  # (n_superblocks,)
+    dmin = np.max(-sub_mins, axis=1).astype(np.float16)  # (n_superblocks,)
+
+    d_safe = np.where(d == 0, np.float16(1.0), d)
+    dmin_safe = np.where(dmin == 0, np.float16(1.0), dmin)
+
+    # Compute 6-bit scales and mins for each sub-block
+    scales = np.zeros((n_superblocks, 8), dtype=np.uint8)
+    mins = np.zeros((n_superblocks, 8), dtype=np.uint8)
+
+    for i in range(8):
+        sub_range = sub_maxes[:, i] - sub_mins[:, i]
+        scales[:, i] = np.round(sub_range / d_safe * 63).clip(0, 63).astype(np.uint8)
+        mins[:, i] = np.round(-sub_mins[:, i] / dmin_safe * 63).clip(0, 63).astype(np.uint8)
+
+    # Pack scales and mins into 12 bytes per superblock
+    # Format: scales[0-3] low 4 bits, scales[0-3] high 2 bits, ...
+    scales_mins = np.zeros((n_superblocks, 12), dtype=np.uint8)
+    for sb in range(n_superblocks):
+        # Pack first 4 scales (lower 4 bits)
+        scales_mins[sb, 0] = (scales[sb, 0] & 0xF) | ((scales[sb, 1] & 0xF) << 4)
+        scales_mins[sb, 1] = (scales[sb, 2] & 0xF) | ((scales[sb, 3] & 0xF) << 4)
+        # Pack last 4 scales (lower 4 bits)
+        scales_mins[sb, 2] = (scales[sb, 4] & 0xF) | ((scales[sb, 5] & 0xF) << 4)
+        scales_mins[sb, 3] = (scales[sb, 6] & 0xF) | ((scales[sb, 7] & 0xF) << 4)
+        # Pack first 4 mins (lower 4 bits)
+        scales_mins[sb, 4] = (mins[sb, 0] & 0xF) | ((mins[sb, 1] & 0xF) << 4)
+        scales_mins[sb, 5] = (mins[sb, 2] & 0xF) | ((mins[sb, 3] & 0xF) << 4)
+        # Pack last 4 mins (lower 4 bits)
+        scales_mins[sb, 6] = (mins[sb, 4] & 0xF) | ((mins[sb, 5] & 0xF) << 4)
+        scales_mins[sb, 7] = (mins[sb, 6] & 0xF) | ((mins[sb, 7] & 0xF) << 4)
+        # Pack high 2 bits of scales
+        scales_mins[sb, 8] = ((scales[sb, 0] >> 4) & 0x3) | (((scales[sb, 1] >> 4) & 0x3) << 2) | \
+                            (((scales[sb, 2] >> 4) & 0x3) << 4) | (((scales[sb, 3] >> 4) & 0x3) << 6)
+        scales_mins[sb, 9] = ((scales[sb, 4] >> 4) & 0x3) | (((scales[sb, 5] >> 4) & 0x3) << 2) | \
+                            (((scales[sb, 6] >> 4) & 0x3) << 4) | (((scales[sb, 7] >> 4) & 0x3) << 6)
+        # Pack high 2 bits of mins
+        scales_mins[sb, 10] = ((mins[sb, 0] >> 4) & 0x3) | (((mins[sb, 1] >> 4) & 0x3) << 2) | \
+                             (((mins[sb, 2] >> 4) & 0x3) << 4) | (((mins[sb, 3] >> 4) & 0x3) << 6)
+        scales_mins[sb, 11] = ((mins[sb, 4] >> 4) & 0x3) | (((mins[sb, 5] >> 4) & 0x3) << 2) | \
+                             (((mins[sb, 6] >> 4) & 0x3) << 4) | (((mins[sb, 7] >> 4) & 0x3) << 6)
+
+    # Quantize the actual values to 4 bits and pack
+    packed_quants = np.zeros((n_superblocks, 128), dtype=np.uint8)
+
+    for sb in range(n_superblocks):
+        for sub_idx in range(8):
+            sub_block = sub_blocks[sb, sub_idx]
+            sc = (scales[sb, sub_idx] / 63.0) * d_safe[sb] if d_safe[sb] != 0 else 1.0
+            mi = (mins[sb, sub_idx] / 63.0) * dmin_safe[sb] if dmin_safe[sb] != 0 else 0.0
+
+            sc_safe = sc if sc != 0 else 1.0
+            quantized = np.round((sub_block + mi) / sc_safe * 15).clip(0, 15).astype(np.uint8)
+
+            # Pack into nibbles
+            base = sub_idx * 16
+            for i in range(16):
+                low = quantized[2 * i]
+                high = quantized[2 * i + 1]
+                packed_quants[sb, base + i] = low | (high << 4)
+
+    return packed_quants, d, dmin, scales_mins
+
+
+def quantize_q5_k(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Quantize to Q5_K format (5-bit K-quant with superblock scaling).
+
+    Q5_K uses 256-element superblocks with:
+    - 1 FP16 d (superblock scale)
+    - 1 FP16 dmin (superblock min)
+    - 12 bytes of scales/mins for 8 sub-blocks
+    - 128 bytes of low 4-bit quantized data
+    - 32 bytes of high bits (bit 5 for each element)
+
+    Returns:
+        Tuple of (packed_quants_low, packed_quants_high, d, dmin, scales_mins)
+    """
+    flat = data.flatten().astype(np.float32)
+
+    # Pad to multiple of 256
+    pad_size = (256 - (len(flat) % 256)) % 256
+    if pad_size > 0:
+        flat = np.pad(flat, (0, pad_size), mode="constant", constant_values=0)
+
+    superblocks = flat.reshape(-1, 256)
+    n_superblocks = superblocks.shape[0]
+    sub_blocks = superblocks.reshape(n_superblocks, 8, 32)
+
+    # Compute per-sub-block scales and mins
+    sub_maxes = np.max(sub_blocks, axis=2)
+    sub_mins = np.min(sub_blocks, axis=2)
+
+    d = np.max(sub_maxes - sub_mins, axis=1).astype(np.float16)
+    dmin = np.max(-sub_mins, axis=1).astype(np.float16)
+
+    d_safe = np.where(d == 0, np.float16(1.0), d)
+    dmin_safe = np.where(dmin == 0, np.float16(1.0), dmin)
+
+    # 6-bit scales and mins
+    scales = np.zeros((n_superblocks, 8), dtype=np.uint8)
+    mins = np.zeros((n_superblocks, 8), dtype=np.uint8)
+
+    for i in range(8):
+        sub_range = sub_maxes[:, i] - sub_mins[:, i]
+        scales[:, i] = np.round(sub_range / d_safe * 63).clip(0, 63).astype(np.uint8)
+        mins[:, i] = np.round(-sub_mins[:, i] / dmin_safe * 63).clip(0, 63).astype(np.uint8)
+
+    # Pack scales and mins (same as Q4_K)
+    scales_mins = np.zeros((n_superblocks, 12), dtype=np.uint8)
+    for sb in range(n_superblocks):
+        scales_mins[sb, 0] = (scales[sb, 0] & 0xF) | ((scales[sb, 1] & 0xF) << 4)
+        scales_mins[sb, 1] = (scales[sb, 2] & 0xF) | ((scales[sb, 3] & 0xF) << 4)
+        scales_mins[sb, 2] = (scales[sb, 4] & 0xF) | ((scales[sb, 5] & 0xF) << 4)
+        scales_mins[sb, 3] = (scales[sb, 6] & 0xF) | ((scales[sb, 7] & 0xF) << 4)
+        scales_mins[sb, 4] = (mins[sb, 0] & 0xF) | ((mins[sb, 1] & 0xF) << 4)
+        scales_mins[sb, 5] = (mins[sb, 2] & 0xF) | ((mins[sb, 3] & 0xF) << 4)
+        scales_mins[sb, 6] = (mins[sb, 4] & 0xF) | ((mins[sb, 5] & 0xF) << 4)
+        scales_mins[sb, 7] = (mins[sb, 6] & 0xF) | ((mins[sb, 7] & 0xF) << 4)
+        scales_mins[sb, 8] = ((scales[sb, 0] >> 4) & 0x3) | (((scales[sb, 1] >> 4) & 0x3) << 2) | \
+                            (((scales[sb, 2] >> 4) & 0x3) << 4) | (((scales[sb, 3] >> 4) & 0x3) << 6)
+        scales_mins[sb, 9] = ((scales[sb, 4] >> 4) & 0x3) | (((scales[sb, 5] >> 4) & 0x3) << 2) | \
+                            (((scales[sb, 6] >> 4) & 0x3) << 4) | (((scales[sb, 7] >> 4) & 0x3) << 6)
+        scales_mins[sb, 10] = ((mins[sb, 0] >> 4) & 0x3) | (((mins[sb, 1] >> 4) & 0x3) << 2) | \
+                             (((mins[sb, 2] >> 4) & 0x3) << 4) | (((mins[sb, 3] >> 4) & 0x3) << 6)
+        scales_mins[sb, 11] = ((mins[sb, 4] >> 4) & 0x3) | (((mins[sb, 5] >> 4) & 0x3) << 2) | \
+                             (((mins[sb, 6] >> 4) & 0x3) << 4) | (((mins[sb, 7] >> 4) & 0x3) << 6)
+
+    # Quantize to 5 bits and pack
+    packed_quants_low = np.zeros((n_superblocks, 128), dtype=np.uint8)  # Low 4 bits
+    packed_quants_high = np.zeros((n_superblocks, 32), dtype=np.uint8)  # High bit
+
+    for sb in range(n_superblocks):
+        for sub_idx in range(8):
+            sub_block = sub_blocks[sb, sub_idx]
+            sc = (scales[sb, sub_idx] / 63.0) * d_safe[sb] if d_safe[sb] != 0 else 1.0
+            mi = (mins[sb, sub_idx] / 63.0) * dmin_safe[sb] if dmin_safe[sb] != 0 else 0.0
+
+            sc_safe = sc if sc != 0 else 1.0
+            quantized = np.round((sub_block + mi) / sc_safe * 31).clip(0, 31).astype(np.uint8)
+
+            # Pack low 4 bits
+            base = sub_idx * 16
+            for i in range(16):
+                low = quantized[2 * i] & 0xF
+                high = quantized[2 * i + 1] & 0xF
+                packed_quants_low[sb, base + i] = low | (high << 4)
+
+            # Pack high bits (bit 5) - 32 elements per sub-block, 8 per byte
+            high_base = sub_idx * 4
+            for i in range(4):
+                byte_val = 0
+                for j in range(8):
+                    if quantized[i * 8 + j] & 0x10:
+                        byte_val |= (1 << j)
+                packed_quants_high[sb, high_base + i] = byte_val
+
+    return packed_quants_low, packed_quants_high, d, dmin, scales_mins
+
+
+def quantize_q6_k(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Quantize to Q6_K format (6-bit K-quant with superblock scaling).
+
+    Q6_K uses 256-element superblocks with:
+    - 1 FP16 d (superblock scale)
+    - 16 int8 scales (one per 16-element sub-block)
+    - 128 bytes of low 4-bit quantized data
+    - 64 bytes of high 2-bit quantized data
+
+    Returns:
+        Tuple of (packed_quants_low, packed_quants_high, d, scales)
+    """
+    flat = data.flatten().astype(np.float32)
+
+    # Pad to multiple of 256
+    pad_size = (256 - (len(flat) % 256)) % 256
+    if pad_size > 0:
+        flat = np.pad(flat, (0, pad_size), mode="constant", constant_values=0)
+
+    superblocks = flat.reshape(-1, 256)
+    n_superblocks = superblocks.shape[0]
+
+    # Q6_K has 16 sub-blocks of 16 elements each
+    sub_blocks = superblocks.reshape(n_superblocks, 16, 16)
+
+    # Compute per-sub-block scales
+    sub_maxes = np.max(np.abs(sub_blocks), axis=2)  # (n_superblocks, 16)
+
+    # Superblock d: max of sub-block maxes
+    d = np.max(sub_maxes, axis=1).astype(np.float16)  # (n_superblocks,)
+    d_safe = np.where(d == 0, np.float16(1.0), d)
+
+    # Compute int8 scales for each sub-block
+    scales = np.zeros((n_superblocks, 16), dtype=np.int8)
+    for i in range(16):
+        scales[:, i] = np.round(sub_maxes[:, i] / d_safe * 127).clip(-128, 127).astype(np.int8)
+
+    # Quantize to 6 bits and pack
+    packed_quants_low = np.zeros((n_superblocks, 128), dtype=np.uint8)  # Low 4 bits
+    packed_quants_high = np.zeros((n_superblocks, 64), dtype=np.uint8)  # High 2 bits
+
+    for sb in range(n_superblocks):
+        for sub_idx in range(16):
+            sub_block = sub_blocks[sb, sub_idx]
+            sc = (scales[sb, sub_idx] / 127.0) * d_safe[sb] if scales[sb, sub_idx] != 0 else 1.0
+
+            quantized = np.round(sub_block / sc * 31).clip(-32, 31).astype(np.int8)
+            # Shift to unsigned: -32..31 -> 0..63
+            quantized_unsigned = (quantized + 32).astype(np.uint8)
+
+            # Pack low 4 bits (2 values per byte)
+            base = sub_idx * 8
+            for i in range(8):
+                low = quantized_unsigned[2 * i] & 0xF
+                high = quantized_unsigned[2 * i + 1] & 0xF
+                packed_quants_low[sb, base + i] = low | (high << 4)
+
+            # Pack high 2 bits (4 values per byte)
+            high_base = sub_idx * 4
+            for i in range(4):
+                byte_val = 0
+                for j in range(4):
+                    elem_idx = i * 4 + j
+                    high_bits = (quantized_unsigned[elem_idx] >> 4) & 0x3
+                    byte_val |= (high_bits << (j * 2))
+                packed_quants_high[sb, high_base + i] = byte_val
+
+    return packed_quants_low, packed_quants_high, d, scales
 
 
 def load_checkpoint(checkpoint_path: Path) -> tuple[dict[str, np.ndarray], dict]:
@@ -470,19 +880,13 @@ def export_gguf(
     # Create GGUF writer
     writer = GGUFWriter(output_path, metadata)
 
-    # Add tensors
+    # Add tensors - quantization happens during write()
     total_size = 0
     for name, tensor in weights.items():
-        # Apply quantization if needed
-        if ggml_type == GGMLType.Q8_0:
-            tensor = quantize_q8_0(tensor)
-        elif ggml_type == GGMLType.Q4_0:
-            tensor = quantize_q4_0(tensor)
-
         writer.add_tensor(name, tensor, ggml_type)
         total_size += tensor.nbytes
 
-    print(f"Total tensor size: {total_size / 1024 / 1024:.2f} MB")
+    print(f"Original tensor size: {total_size / 1024 / 1024:.2f} MB")
 
     # Write GGUF file
     print(f"Writing GGUF to {output_path}...")

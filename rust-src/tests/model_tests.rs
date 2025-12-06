@@ -1,4 +1,4 @@
-use deepseek_from_scratch_in_rust::model::mla::{MultiHeadLatentAttention, DeepSeekAttention};
+use deepseek_rust::model::mla::{MultiHeadLatentAttention, DeepSeekAttention};
 use candle_core::{Device, Tensor, DType};
 use candle_nn::VarBuilder;
 
@@ -47,7 +47,7 @@ fn test_deepseek_attention_shapes() -> anyhow::Result<()> {
 // Phase 5: Agent/Tool-Use Training Tests
 // ============================================================================
 
-use deepseek_from_scratch_in_rust::training::agent::{
+use deepseek_rust::training::agent::{
     ToolType, ToolStatus, ToolCall, ToolResponse, AgentTurn, AgentTrajectory,
     TaskTier, RewardWeights, RewardBreakdown, AgentRewardComputer,
 };

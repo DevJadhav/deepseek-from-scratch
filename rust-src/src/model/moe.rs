@@ -1,3 +1,10 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::needless_borrows_for_generic_args)]
+#![allow(clippy::needless_question_mark)]
+#![allow(dead_code)]
+#![allow(unused_parens)]
+
 use candle_core::{Result, Tensor, DType, Module, Device};
 use candle_nn::{Linear, VarBuilder, ops};
 #[allow(unused_imports)]
@@ -268,6 +275,119 @@ pub struct LoadBalanceStats {
     pub min_bias: f32,
     pub step: usize,
 }
+
+// ============================================================================
+// RouterBiasController (DeepSeek-V3 Auxiliary-Loss-Free Load Balancing)
+// ============================================================================
+
+/// High-level controller for auxiliary-loss-free load balancing per DeepSeek-V3.
+///
+/// This controller wraps LoadBalancingState and provides a clean API for:
+/// 1. Updating router biases AFTER each batch (not during backward pass)
+/// 2. Disabling auxiliary loss when bias-based balancing is active
+/// 3. Providing the `bias_update_alpha` hyperparameter (recommended 0.001)
+///
+/// Key difference from traditional auxiliary loss:
+/// - Traditional: Add loss term during backward pass that competes with main loss
+/// - Bias-based: Update biases directly after batch, no gradient interference
+///
+/// Usage:
+/// ```rust,ignore
+/// let controller = RouterBiasController::new(&config, &device)?;
+/// 
+/// // During forward pass:
+/// let biased_logits = logits + controller.get_bias();
+///
+/// // AFTER backward pass (not during):
+/// controller.update_after_batch(&expert_counts, &device)?;
+/// ```
+pub struct RouterBiasController {
+    /// Internal load balancing state
+    state: LoadBalancingState,
+    /// Whether auxiliary loss should be disabled (always true when using this controller)
+    aux_loss_disabled: bool,
+}
+
+impl RouterBiasController {
+    /// Create a new RouterBiasController
+    ///
+    /// Args:
+    ///     config: MoE configuration with bias_lr (alias: bias_update_alpha)
+    ///     device: Device to create tensors on
+    pub fn new(config: &DeepSeekMoEV3Config, device: &Device) -> Result<Self> {
+        let state = LoadBalancingState::new(config, device)?;
+        Ok(Self {
+            state,
+            aux_loss_disabled: true,  // Always disable aux loss when using bias-based
+        })
+    }
+
+    /// Create with custom history size for visualization
+    pub fn with_history_size(config: &DeepSeekMoEV3Config, device: &Device, max_history: usize) -> Result<Self> {
+        let state = LoadBalancingState::with_history_size(config, device, max_history)?;
+        Ok(Self {
+            state,
+            aux_loss_disabled: true,
+        })
+    }
+
+    /// Get current bias tensor to add to routing logits
+    pub fn get_bias(&self) -> &Tensor {
+        self.state.get_bias()
+    }
+
+    /// Update biases after batch completion (NOT during backward pass)
+    ///
+    /// This should be called AFTER optimizer.step() and zero_grad(),
+    /// not during the backward pass. This ensures no interference with gradients.
+    ///
+    /// Args:
+    ///     expert_counts: Count of tokens routed to each expert in this batch
+    ///     device: Device for tensor operations
+    pub fn update_after_batch(&mut self, expert_counts: &[f32], device: &Device) -> Result<()> {
+        self.state.update(expert_counts, device)
+    }
+
+    /// Check if auxiliary loss should be used
+    /// 
+    /// Returns false when using RouterBiasController (bias-based balancing)
+    /// This prevents the competing auxiliary loss from interfering
+    pub fn use_auxiliary_loss(&self) -> bool {
+        !self.aux_loss_disabled
+    }
+
+    /// Get load balancing statistics
+    pub fn get_stats(&self) -> (f32, f32, f32) {
+        self.state.get_stats()
+    }
+
+    /// Get detailed statistics for logging
+    pub fn get_detailed_stats(&self) -> LoadBalanceStats {
+        self.state.get_detailed_stats()
+    }
+
+    /// Get bias history for visualization
+    pub fn get_bias_history(&self) -> &[Vec<f32>] {
+        self.state.get_bias_history()
+    }
+
+    /// Get load history for visualization  
+    pub fn get_load_history(&self) -> &[Vec<f32>] {
+        self.state.get_load_history()
+    }
+
+    /// Get the current step count
+    pub fn step(&self) -> usize {
+        self.state.step
+    }
+}
+
+/// Alias for bias learning rate (recommended value: 0.001)
+/// 
+/// In DeepSeekMoEV3Config, use either:
+/// - `bias_lr: 0.001` (original name)
+/// - This constant as reference for recommended value
+pub const BIAS_UPDATE_ALPHA_RECOMMENDED: f64 = 0.001;
 
 // ============================================================================
 // Expert Frequency Tracker (for Specialization Analysis)
@@ -944,6 +1064,129 @@ impl DeepSeekMoE {
             );
         }
 
+        let routed_out = routed_out.reshape((b, s, d))?;
+        let shared_out = shared_out.reshape((b, s, d))?;
+        
+        Ok((x + shared_out + routed_out)?)
+    }
+    
+    /// Optimized forward pass with sorting for memory coalescing
+    /// 
+    /// This method sorts tokens by expert assignment before processing,
+    /// which improves memory access patterns for large number of experts (256+).
+    /// 
+    /// # Arguments
+    /// * `x` - Input tensor (batch, seq_len, d_model)
+    pub fn forward_optimized(&self, x: &Tensor) -> Result<Tensor> {
+        let (b, s, d) = x.dims3()?;
+        let x_flat = x.reshape((b * s, d))?;
+        let n_tokens = b * s;
+
+        // 1. Shared expert path (always active)
+        let mut shared_out = Tensor::zeros_like(&x_flat)?;
+        for exp in &self.shared_experts {
+            shared_out = (shared_out + exp.forward(&x_flat)?)?;
+        }
+
+        // 2. Router computation
+        let logits = x_flat.matmul(&self.centroids.transpose(0, 1)?)?;
+        let logits = logits.broadcast_add(&self.bias)?;
+        let logits = logits.contiguous()?;
+        
+        // Top-K selection
+        let topk_idx = logits.arg_sort_last_dim(true)?.narrow(1, 0, self.top_k)?.contiguous()?;
+        let topk_vals = logits.gather(&topk_idx, 1)?;
+        let gate = ops::softmax(&topk_vals, 1)?;  // (N, k)
+
+        // 3. Flatten routing for sorted dispatch
+        // Expand token indices to match top-k: each token appears k times
+        let topk_idx_flat = topk_idx.flatten_all()?.to_vec1::<u32>()?;
+        let gate_flat = gate.flatten_all()?.to_vec1::<f32>()?;
+        
+        // Build (token_id, expert_id, gate_weight) tuples
+        let mut routing_info: Vec<(usize, usize, f32)> = Vec::with_capacity(n_tokens * self.top_k);
+        for flat_idx in 0..(n_tokens * self.top_k) {
+            let token_id = flat_idx / self.top_k;
+            let expert_id = topk_idx_flat[flat_idx] as usize;
+            let gate_weight = gate_flat[flat_idx];
+            if expert_id < self.n_routed {
+                routing_info.push((token_id, expert_id, gate_weight));
+            }
+        }
+        
+        // Sort by expert ID for memory coalescing
+        routing_info.sort_by_key(|&(_, expert_id, _)| expert_id);
+        
+        // Compute expert boundaries
+        let mut expert_counts = vec![0usize; self.n_routed];
+        for &(_, expert_id, _) in &routing_info {
+            expert_counts[expert_id] += 1;
+        }
+        
+        let capacity = self.compute_capacity(n_tokens);
+        let mut boundaries = vec![0usize; self.n_routed + 1];
+        for e in 0..self.n_routed {
+            boundaries[e + 1] = boundaries[e] + expert_counts[e].min(capacity);
+        }
+        
+        // 4. Process experts with sorted tokens
+        let mut output_parts: Vec<(usize, Tensor)> = Vec::new();  // (start_pos, output)
+        let mut token_positions: Vec<(usize, usize)> = Vec::new();  // (original_token_id, output_idx)
+        let mut current_output_idx = 0;
+        
+        let mut current_pos = 0;
+        for e in 0..self.n_routed {
+            let count = expert_counts[e].min(capacity);
+            if count == 0 {
+                current_pos += expert_counts[e];  // Skip this expert's tokens
+                continue;
+            }
+            
+            // Gather tokens for this expert
+            let expert_tokens: Vec<_> = routing_info[current_pos..current_pos + count].to_vec();
+            let token_ids: Vec<u32> = expert_tokens.iter().map(|&(t, _, _)| t as u32).collect();
+            let weights: Vec<f32> = expert_tokens.iter().map(|&(_, _, w)| w).collect();
+            
+            // Create tensors
+            let token_ids_tensor = Tensor::from_vec(token_ids.clone(), (count,), x.device())?;
+            let weights_tensor = Tensor::from_vec(weights, (count, 1), x.device())?;
+            
+            // Gather input tokens
+            let expert_input = x_flat.index_select(&token_ids_tensor, 0)?;
+            
+            // Process through expert
+            let expert_out = self.routed_experts[e].forward(&expert_input)?;
+            let weighted_out = expert_out.broadcast_mul(&weights_tensor)?;
+            
+            // Record output positions for scatter
+            for (i, &tid) in token_ids.iter().enumerate() {
+                token_positions.push((tid as usize, current_output_idx + i));
+            }
+            
+            output_parts.push((current_output_idx, weighted_out));
+            current_output_idx += count;
+            current_pos += expert_counts[e];  // Move past all tokens for this expert
+        }
+        
+        // 5. Scatter outputs back to original positions
+        let mut routed_out = Tensor::zeros_like(&x_flat)?;
+        
+        for (start_idx, output_tensor) in output_parts {
+            let output_len = output_tensor.dim(0)?;
+            for i in 0..output_len {
+                let global_idx = start_idx + i;
+                if let Some(&(original_token_id, _)) = token_positions
+                    .iter()
+                    .find(|&&(_, out_idx)| out_idx == global_idx)
+                {
+                    let single_output = output_tensor.narrow(0, i, 1)?;
+                    let indices = Tensor::from_vec(vec![original_token_id as u32], (1,), x.device())?;
+                    routed_out = routed_out.index_add(&indices, &single_output, 0)?;
+                }
+            }
+        }
+        
+        // Combine paths
         let routed_out = routed_out.reshape((b, s, d))?;
         let shared_out = shared_out.reshape((b, s, d))?;
         

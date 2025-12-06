@@ -98,3 +98,176 @@ Standard RL (like PPO) requires a "Critic" (Value Function) model, which is expe
 
 ## Running the Code
 See [README.md](./README.md) for instructions on how to run the demos and benchmarks.
+
+---
+
+## Chapter 7: Zero-Copy PyO3 Python Interop
+
+### Theory
+For production ML pipelines, efficient data transfer between Python (NumPy/PyTorch) and Rust is critical. Traditional approaches copy tensor data across the language boundary, which is expensive for large tensors.
+
+**Zero-Copy Interop** eliminates this overhead using:
+1. **PyO3 Buffer Protocol**: Direct memory access to NumPy arrays without copying
+2. **Arrow IPC**: Efficient serialization format for tensor transfer between processes
+3. **Shared Memory Arena**: mmap-based memory regions for Ray actor communication
+
+### Implementation (`src/pyo3_bindings/`)
+
+#### Module Structure
+```
+rust-src/src/pyo3_bindings/
+├── mod.rs              # Module registration and convenience functions
+├── tensor_view.rs      # CandleTensorView - zero-copy NumPy ↔ Candle conversion
+├── arrow_interop.rs    # ArrowTensorInterop - Arrow IPC serialization
+└── shared_memory.rs    # SharedMemoryArena - mmap-based shared memory
+```
+
+#### Key Components
+
+**CandleTensorView** (`tensor_view.rs`):
+- `from_numpy_f32/f64/i64/u32/u8`: Create Candle tensor from NumPy array
+- `to_numpy_f32/f64/i64`: Convert Candle tensor back to NumPy
+- `matmul`, `add`, `mul`, `transpose`: Tensor operations in Rust
+- Supported DTypes: F32, F64, F16, BF16, I64, U32, U8 (Note: I32 is NOT supported by Candle)
+
+**ArrowTensorInterop** (`arrow_interop.rs`):
+- `serialize_tensor`: Convert tensor to Arrow IPC bytes
+- `deserialize_tensor`: Reconstruct tensor from Arrow IPC bytes
+- `serialize_batch/deserialize_batch`: Batch tensor serialization with names
+- `peek_metadata`: Get tensor shape/dtype without full deserialization
+
+**SharedMemoryArena** (`shared_memory.rs`):
+- `allocate_named/allocate`: Store tensors in mmap-backed shared memory
+- `get/read`: Retrieve tensors by name or handle
+- `free/reset`: Memory management
+- `SharedTensorHandle`: Serializable handle for IPC between processes
+
+### Build & Installation
+
+#### Prerequisites
+- Rust 1.70+ with `cargo`
+- Python 3.10+ with `uv` package manager
+- maturin (`uv pip install maturin`)
+
+#### Build Commands
+```bash
+# Navigate to project root
+cd /path/to/DeepSeek-From-Scratch
+
+# Build and install the Rust Python module (development mode)
+uv run maturin develop -m rust-src/Cargo.toml --uv
+
+# Or build a wheel
+uv run maturin build -m rust-src/Cargo.toml --features pyo3-bindings
+```
+
+#### Configuration Files
+
+**rust-src/Cargo.toml** (key sections):
+```toml
+[lib]
+name = "deepseek_rust"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+pyo3-bindings = ["dep:pyo3", "dep:numpy", "dep:ndarray"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"], optional = true }
+numpy = { version = "0.22", optional = true }
+```
+
+**rust-src/pyproject.toml**:
+```toml
+[project]
+name = "deepseek-rust"  # Different from main project to avoid conflicts
+version = "0.1.0"
+
+[tool.maturin]
+features = ["pyo3-bindings"]
+module-name = "deepseek_rust"
+```
+
+**rust-src/src/lib.rs** (conditional compilation):
+```rust
+#[cfg(feature = "pyo3-bindings")]
+pub mod pyo3_bindings;
+
+#[cfg(feature = "pyo3-bindings")]
+#[pymodule]
+fn deepseek_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    pyo3_bindings::register_bindings(m)?;
+    Ok(())
+}
+```
+
+### Running Tests
+
+#### Python Tests
+```bash
+# Run all zero-copy interop tests
+uv run pytest tests/rust_interop/ -v
+
+# Run specific test class
+uv run pytest tests/rust_interop/test_zero_copy.py::TestCandleTensorView -v
+```
+
+#### Rust Tests
+```bash
+# Run Rust library tests (without PyO3 feature to avoid linker issues)
+cd rust-src && cargo test --lib
+
+# Run with verbose output
+cargo test --lib -- --nocapture
+```
+
+### Python Usage Example
+```python
+import deepseek_rust
+import numpy as np
+
+# Create tensor from NumPy (zero-copy when contiguous)
+arr = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
+tensor = deepseek_rust.CandleTensorView.from_numpy_f32(arr)
+
+print(tensor.shape())  # [2, 3]
+print(tensor.dtype())  # "F32"
+
+# Tensor operations in Rust
+tensor_b = deepseek_rust.CandleTensorView.from_numpy_f32(
+    np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
+)
+result = tensor.matmul(tensor_b.transpose(0, 1))
+
+# Convert back to NumPy
+result_np = result.to_numpy_f32()
+
+# Arrow serialization for IPC
+interop = deepseek_rust.ArrowTensorInterop()
+serialized = interop.serialize_tensor(tensor)
+restored = deepseek_rust.ArrowTensorInterop.deserialize_tensor(serialized)
+
+# Shared memory arena for Ray actors
+arena = deepseek_rust.SharedMemoryArena("my_arena", 10 * 1024 * 1024)  # 10MB
+handle = arena.allocate_named("weights", tensor)
+retrieved = arena.get("weights")
+```
+
+### Troubleshooting
+
+**Issue: `ModuleNotFoundError: No module named 'deepseek_rust'`**
+- Ensure you ran `uv run maturin develop -m rust-src/Cargo.toml --uv`
+- Check that `rust-src/pyproject.toml` has `name = "deepseek-rust"` (different from main project)
+
+**Issue: Linker errors when running `cargo test --lib`**
+- PyO3 requires Python libraries at link time for test binaries
+- The `pyo3-bindings` feature is optional; tests run without it
+- Use `cargo test --lib` (not `cargo test`) to avoid building PyO3 test harness
+
+**Issue: `RuntimeError: NumPy error: Array not contiguous`**
+- Rust requires contiguous arrays; use `np.ascontiguousarray()` for sliced views
+
+**Issue: `DType::I32 not found`**
+- Candle does not support I32; use I64, U32, or F32 instead
+

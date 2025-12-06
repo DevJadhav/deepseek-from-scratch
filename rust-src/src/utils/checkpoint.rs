@@ -3,11 +3,11 @@
 //! Provides safe checkpoint saving and loading with corruption detection.
 
 use crate::utils::error::{DeepSeekError, Result};
+#[allow(unused_imports)]
 use candle_core::{safetensors, DType, Device, Tensor};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::fs;
 use std::path::Path;
 use tracing::{info, warn, error};
 

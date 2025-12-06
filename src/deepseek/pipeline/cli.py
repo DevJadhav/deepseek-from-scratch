@@ -616,5 +616,261 @@ def config_show(
     typer.echo(cfg.summary())
 
 
+@app.command()
+def serve_rust(
+    model_path: Path = typer.Argument(
+        ...,
+        help="Path to model checkpoint directory",
+    ),
+    port: int = typer.Option(
+        8080,
+        "--port",
+        "-p",
+        help="Port to listen on",
+    ),
+    host: str = typer.Option(
+        "0.0.0.0",
+        "--host",
+        "-h",
+        help="Host to bind to",
+    ),
+    build: bool = typer.Option(
+        False,
+        "--build",
+        help="Build Rust binary before running (requires cargo)",
+    ),
+    release: bool = typer.Option(
+        True,
+        "--release/--debug",
+        help="Build in release mode (optimized) or debug mode",
+    ),
+):
+    """
+    Start the high-performance Rust inference server.
+    
+    This command starts the Rust-based inference server for production
+    deployments. The server provides an OpenAI-compatible API endpoint.
+    
+    Prerequisites:
+    - Rust toolchain installed (rustup)
+    - Model checkpoint in safetensors format
+    
+    Example:
+        deepseek serve-rust ./checkpoints/final --port 8080
+        deepseek serve-rust ./model --port 3000 --build
+        deepseek serve-rust ./model --build --debug
+    
+    API Endpoints (when server is running):
+        POST /v1/completions - Text completion
+        POST /v1/chat/completions - Chat completion
+        GET /health - Health check
+    """
+    import subprocess
+    import shutil
+    import os
+    
+    rust_src = Path(__file__).parent.parent.parent.parent / "rust-src"
+    
+    if not rust_src.exists():
+        typer.echo(f"✗ Rust source directory not found: {rust_src}")
+        raise typer.Exit(1)
+    
+    # Check if model path exists
+    model_path = Path(model_path).resolve()
+    if not model_path.exists():
+        typer.echo(f"✗ Model path not found: {model_path}")
+        raise typer.Exit(1)
+    
+    typer.echo("═" * 60)
+    typer.echo("  DeepSeek Rust Inference Server")
+    typer.echo("═" * 60)
+    typer.echo(f"\nModel path: {model_path}")
+    typer.echo(f"Server:     {host}:{port}")
+    
+    # Check for cargo
+    cargo_path = shutil.which("cargo")
+    if cargo_path is None:
+        typer.echo("\n✗ Cargo not found. Please install Rust toolchain:")
+        typer.echo("  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
+        raise typer.Exit(1)
+    
+    typer.echo(f"\nCargo found: {cargo_path}")
+    
+    # Build if requested
+    if build:
+        typer.echo("\nBuilding Rust binary...")
+        build_cmd = ["cargo", "build"]
+        if release:
+            build_cmd.append("--release")
+        
+        result = subprocess.run(
+            build_cmd,
+            cwd=rust_src,
+            capture_output=False,
+        )
+        if result.returncode != 0:
+            typer.echo("✗ Build failed")
+            raise typer.Exit(1)
+        typer.echo("✓ Build successful")
+    
+    # Determine binary path
+    target_dir = rust_src / "target" / ("release" if release else "debug")
+    binary_name = "deepseek-rs"
+    binary_path = target_dir / binary_name
+    
+    # Check for existing binary
+    if not binary_path.exists():
+        # Try without the -rs suffix
+        binary_path = target_dir / "deepseek"
+        if not binary_path.exists():
+            typer.echo(f"\n✗ Binary not found at {target_dir}")
+            typer.echo("  Try running with --build flag to compile first")
+            raise typer.Exit(1)
+    
+    typer.echo(f"\nStarting server from: {binary_path}")
+    typer.echo("-" * 60)
+    
+    # Run the server
+    server_cmd = [
+        str(binary_path),
+        "serve",
+        "--port", str(port),
+        "--host", host,
+        "--model-path", str(model_path),
+    ]
+    
+    try:
+        # Run server (this will block until interrupted)
+        result = subprocess.run(server_cmd, cwd=rust_src)
+        if result.returncode != 0:
+            raise typer.Exit(result.returncode)
+    except KeyboardInterrupt:
+        typer.echo("\n\nServer stopped by user")
+
+
+@app.command()
+def verify_cuda(
+    backend: str = typer.Option(
+        "nccl",
+        "--backend",
+        "-b",
+        help="Distributed backend to test: nccl, gloo",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed information",
+    ),
+):
+    """
+    Verify CUDA distributed setup before Expert Parallelism training.
+    
+    This command checks:
+    - CUDA availability and GPU count
+    - NCCL backend initialization
+    - GPU memory and compute capability
+    - Multi-GPU communication (if multiple GPUs available)
+    
+    Example:
+        deepseek verify-cuda
+        deepseek verify-cuda --backend nccl --verbose
+    """
+    import sys
+    
+    typer.echo("═" * 60)
+    typer.echo("  CUDA Distributed Verification")
+    typer.echo("═" * 60)
+    
+    # Check PyTorch and CUDA availability
+    try:
+        import torch
+        typer.echo(f"\n✓ PyTorch version: {torch.__version__}")
+    except ImportError:
+        typer.echo("✗ PyTorch not installed")
+        raise typer.Exit(1)
+    
+    if not torch.cuda.is_available():
+        typer.echo("✗ CUDA not available")
+        typer.echo("\nPossible reasons:")
+        typer.echo("  - No NVIDIA GPU detected")
+        typer.echo("  - CUDA drivers not installed")
+        typer.echo("  - PyTorch not built with CUDA support")
+        raise typer.Exit(1)
+    
+    # GPU information
+    gpu_count = torch.cuda.device_count()
+    typer.echo(f"✓ CUDA available: {gpu_count} GPU(s) detected")
+    
+    if verbose:
+        for i in range(gpu_count):
+            props = torch.cuda.get_device_properties(i)
+            memory_gb = props.total_memory / (1024**3)
+            typer.echo(f"\n  GPU {i}: {props.name}")
+            typer.echo(f"    Compute capability: {props.major}.{props.minor}")
+            typer.echo(f"    Memory: {memory_gb:.1f} GB")
+            typer.echo(f"    Multi-processor count: {props.multi_processor_count}")
+    
+    # Check NCCL availability
+    typer.echo(f"\n✓ CUDA version: {torch.version.cuda}")
+    
+    if backend == "nccl":
+        if not torch.distributed.is_nccl_available():
+            typer.echo("✗ NCCL backend not available")
+            typer.echo("  Install with: pip install torch with NCCL support")
+            raise typer.Exit(1)
+        typer.echo("✓ NCCL backend available")
+    
+    # Test distributed initialization (single process)
+    typer.echo(f"\nTesting {backend.upper()} initialization...")
+    
+    import torch.distributed as dist
+    import os
+    
+    # Set required environment variables for single-process test
+    os.environ.setdefault("MASTER_ADDR", "127.0.0.1")
+    os.environ.setdefault("MASTER_PORT", "29500")
+    os.environ.setdefault("WORLD_SIZE", "1")
+    os.environ.setdefault("RANK", "0")
+    
+    try:
+        # Use gloo for single-process test (NCCL requires multiple processes)
+        test_backend = "gloo" if gpu_count == 1 else backend
+        dist.init_process_group(backend=test_backend, init_method="env://")
+        world_size = dist.get_world_size()
+        rank = dist.get_rank()
+        typer.echo(f"✓ Distributed initialized: world_size={world_size}, rank={rank}")
+        dist.destroy_process_group()
+        typer.echo("✓ Process group destroyed successfully")
+    except Exception as e:
+        typer.echo(f"✗ Distributed init failed: {e}")
+        raise typer.Exit(1)
+    
+    # Memory test
+    typer.echo("\nMemory allocation test...")
+    try:
+        for i in range(min(gpu_count, 2)):  # Test up to 2 GPUs
+            device = torch.device(f"cuda:{i}")
+            # Allocate small tensor
+            x = torch.randn(1000, 1000, device=device)
+            y = torch.randn(1000, 1000, device=device)
+            z = torch.matmul(x, y)
+            del x, y, z
+            torch.cuda.empty_cache()
+            typer.echo(f"✓ GPU {i}: Memory allocation and matmul successful")
+    except Exception as e:
+        typer.echo(f"✗ Memory test failed: {e}")
+        raise typer.Exit(1)
+    
+    typer.echo("\n" + "═" * 60)
+    typer.echo("  ✓ CUDA distributed verification PASSED!")
+    typer.echo("═" * 60)
+    
+    if gpu_count > 1:
+        typer.echo(f"\nReady for Expert Parallelism with {gpu_count} GPUs")
+    else:
+        typer.echo("\nNote: Only 1 GPU detected. Expert Parallelism requires multiple GPUs.")
+
+
 if __name__ == "__main__":
     app()

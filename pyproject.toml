@@ -60,14 +60,37 @@ ane = [
     "coremltools>=7.1; sys_platform == 'darwin'",
     "torch>=2.0.0",  # ANE tools rely on torch for conversion
 ]
+inference = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "sse-starlette>=1.6.0",
+]
+quantization = [
+    "bitsandbytes>=0.41.0; sys_platform == 'linux'",
+]
+cloud = [
+    "boto3>=1.28.0",  # S3 storage
+    "google-cloud-storage>=2.10.0",  # GCS storage
+]
+distributed = [
+    "deepspeed>=0.10.0; sys_platform == 'linux'",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.5.0",
+    "pytest-asyncio>=0.21.0",
     "ruff>=0.4.0",
     "mypy>=1.5.0",
     "pre-commit>=3.4.0",
     "memory-profiler>=0.61.0",
+]
+rust = [
+    "maturin>=1.4.0",
+    "pyarrow>=14.0.0",
+]
+all = [
+    "deepseek-from-scratch[pipeline,torch,cuda,mlx,inference,quantization,cloud,distributed,dev]",
 ]
 
 [project.scripts]

@@ -4,6 +4,9 @@
 //! When the `cuda` feature is enabled, it uses real NCCL.
 //! Otherwise, it provides a simulation layer for testing.
 
+// Allow non-snake-case names to match NCCL C API
+#![allow(non_snake_case)]
+
 use std::ffi::c_void;
 
 /// NCCL result codes

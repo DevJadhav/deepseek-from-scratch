@@ -778,3 +778,345 @@ def compare_fp8_vs_bf16(
         results["fp8_note"] = "FP8 not supported on this hardware"
     
     return results
+
+
+# ============================================================================
+# INT4/INT8 Inference Quantization (DeepSeek-V3.2 Production Deployment)
+# ============================================================================
+
+class QuantizedLinearInt4(nn.Module):
+    """INT4 quantized linear layer with per-group (128) scaling.
+    
+    Uses asymmetric quantization with 128-element groups for accuracy.
+    Weights are stored as packed uint8 (2 values per byte).
+    
+    Optimized for inference on CUDA with PyTorch.
+    """
+
+    def __init__(self, in_features: int, out_features: int, group_size: int = 128, bias: bool = True):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.group_size = group_size
+
+        # Number of groups per input dimension
+        self.n_groups = (in_features + group_size - 1) // group_size
+        
+        # Padded input size (to align with group_size)
+        self.in_features_padded = self.n_groups * group_size
+
+        # Quantized weights: packed 4-bit (2 values per byte)
+        self.register_buffer(
+            'weight_packed',
+            torch.zeros((out_features, self.in_features_padded // 2), dtype=torch.uint8)
+        )
+        
+        # Per-group scales and zero points
+        self.register_buffer(
+            'scales',
+            torch.zeros((out_features, self.n_groups), dtype=torch.float16)
+        )
+        self.register_buffer(
+            'zeros',
+            torch.zeros((out_features, self.n_groups), dtype=torch.float16)
+        )
+        
+        # Optional bias
+        if bias:
+            self.register_buffer('bias', torch.zeros((out_features,), dtype=torch.float16))
+        else:
+            self.register_buffer('bias', None)
+
+    @classmethod
+    def from_float(cls, linear: nn.Linear, group_size: int = 128) -> "QuantizedLinearInt4":
+        """Convert a float linear layer to INT4 quantized.
+        
+        Args:
+            linear: Original nn.Linear layer
+            group_size: Number of elements per quantization group (default 128)
+        
+        Returns:
+            Quantized INT4 linear layer
+        """
+        in_features = linear.weight.shape[1]
+        out_features = linear.weight.shape[0]
+        has_bias = linear.bias is not None
+        
+        q = cls(in_features, out_features, group_size, bias=has_bias)
+        device = linear.weight.device
+        
+        weight = linear.weight.float()
+        
+        # Pad weight if needed
+        if in_features != q.in_features_padded:
+            padding = q.in_features_padded - in_features
+            weight = F.pad(weight, (0, padding))
+        
+        # Quantize per group
+        scales = torch.zeros((out_features, q.n_groups), dtype=torch.float16, device=device)
+        zeros = torch.zeros((out_features, q.n_groups), dtype=torch.float16, device=device)
+        weight_packed = torch.zeros((out_features, q.in_features_padded // 2), dtype=torch.uint8, device=device)
+        
+        for g in range(q.n_groups):
+            group_start = g * group_size
+            group_end = (g + 1) * group_size
+            group_weights = weight[:, group_start:group_end]
+
+            # Compute min/max for asymmetric quantization
+            w_min = group_weights.min(dim=1, keepdim=True).values
+            w_max = group_weights.max(dim=1, keepdim=True).values
+            
+            # Compute scale (range / 15 for 4-bit)
+            scale = (w_max - w_min) / 15.0
+            scale = torch.where(scale == 0, torch.ones_like(scale), scale)
+            
+            # Compute zero point
+            zero = -w_min / scale
+
+            # Quantize to 0-15 range
+            q_weights = torch.round((group_weights - w_min) / scale)
+            q_weights = torch.clamp(q_weights, 0, 15).to(torch.uint8)
+
+            # Pack nibbles (2 values per byte)
+            for i in range(0, group_size, 2):
+                packed = (q_weights[:, i + 1] << 4) | q_weights[:, i]
+                weight_packed[:, (group_start + i) // 2] = packed
+
+            # Store scales and zeros
+            scales[:, g] = scale.squeeze().half()
+            zeros[:, g] = zero.squeeze().half()
+
+        q.weight_packed = weight_packed
+        q.scales = scales
+        q.zeros = zeros
+
+        if has_bias:
+            q.bias = linear.bias.half()
+
+        return q
+
+    def _dequantize(self) -> torch.Tensor:
+        """Dequantize weights on-the-fly for inference."""
+        device = self.weight_packed.device
+        
+        # Unpack nibbles
+        weight_low = self.weight_packed & 0x0F
+        weight_high = (self.weight_packed >> 4) & 0x0F
+        
+        # Interleave
+        weight_unpacked = torch.zeros(
+            (self.out_features, self.in_features_padded), 
+            dtype=torch.float16, 
+            device=device
+        )
+        weight_unpacked[:, 0::2] = weight_low.half()
+        weight_unpacked[:, 1::2] = weight_high.half()
+        
+        # Dequantize per group
+        weight_dequant = torch.zeros_like(weight_unpacked)
+        for g in range(self.n_groups):
+            group_start = g * self.group_size
+            group_end = (g + 1) * self.group_size
+            
+            scale = self.scales[:, g:g+1]
+            zero = self.zeros[:, g:g+1]
+            
+            weight_dequant[:, group_start:group_end] = (
+                weight_unpacked[:, group_start:group_end] - zero
+            ) * scale
+        
+        # Remove padding
+        return weight_dequant[:, :self.in_features]
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass with on-the-fly dequantization."""
+        weight = self._dequantize()
+        out = F.linear(x, weight, None)
+        
+        if self.bias is not None:
+            out = out + self.bias
+        
+        return out
+
+
+class QuantizedLinearInt8(nn.Module):
+    """INT8 quantized linear layer with per-channel scaling.
+    
+    Uses symmetric per-channel quantization for optimal accuracy/speed tradeoff.
+    Weights are stored as int8 with float16 per-channel scales.
+    
+    Optimized for inference on CUDA with PyTorch.
+    """
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+
+        # Quantized weights (int8)
+        self.register_buffer(
+            'weight_int8',
+            torch.zeros((out_features, in_features), dtype=torch.int8)
+        )
+        
+        # Per-channel scales
+        self.register_buffer(
+            'scale',
+            torch.zeros((out_features,), dtype=torch.float16)
+        )
+        
+        # Optional bias
+        if bias:
+            self.register_buffer('bias', torch.zeros((out_features,), dtype=torch.float16))
+        else:
+            self.register_buffer('bias', None)
+
+    @classmethod
+    def from_float(cls, linear: nn.Linear) -> "QuantizedLinearInt8":
+        """Convert a float linear layer to INT8 quantized.
+        
+        Uses symmetric per-channel quantization with scale = max_abs / 127.
+        
+        Args:
+            linear: Original nn.Linear layer
+        
+        Returns:
+            Quantized INT8 linear layer
+        """
+        in_features = linear.weight.shape[1]
+        out_features = linear.weight.shape[0]
+        has_bias = linear.bias is not None
+        
+        q = cls(in_features, out_features, bias=has_bias)
+        device = linear.weight.device
+        
+        weight = linear.weight.float()
+
+        # Per-channel symmetric quantization
+        w_max = weight.abs().max(dim=1, keepdim=True).values
+        scale = w_max / 127.0
+        scale = torch.where(scale == 0, torch.ones_like(scale), scale)
+
+        # Quantize to int8 (-128 to 127)
+        q.weight_int8 = torch.round(weight / scale).to(torch.int8)
+        q.scale = scale.squeeze().half()
+
+        if has_bias:
+            q.bias = linear.bias.half()
+
+        return q
+
+    def _dequantize(self) -> torch.Tensor:
+        """Dequantize weights on-the-fly for inference."""
+        return self.weight_int8.half() * self.scale[:, None]
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass with on-the-fly dequantization."""
+        weight = self._dequantize()
+        out = F.linear(x, weight, None)
+        
+        if self.bias is not None:
+            out = out + self.bias
+        
+        return out
+
+
+def apply_dynamic_quantization(model: nn.Module) -> nn.Module:
+    """Apply PyTorch dynamic INT8 quantization for inference.
+    
+    This uses PyTorch's built-in dynamic quantization which quantizes
+    weights statically and activations dynamically during inference.
+    
+    Args:
+        model: Model to quantize
+        
+    Returns:
+        Quantized model
+    """
+    return torch.quantization.quantize_dynamic(
+        model,
+        {nn.Linear},
+        dtype=torch.qint8
+    )
+
+
+def apply_static_quantization(
+    model: nn.Module,
+    calibration_data: List[torch.Tensor],
+    backend: str = 'x86',
+) -> nn.Module:
+    """Apply static INT8 quantization with calibration data.
+    
+    This uses PyTorch's static quantization which calibrates
+    quantization parameters using representative data.
+    
+    Args:
+        model: Model to quantize
+        calibration_data: List of input tensors for calibration
+        backend: Quantization backend ('x86' or 'fbgemm' for CPU, 'qnnpack' for ARM)
+        
+    Returns:
+        Quantized model
+    """
+    model.eval()
+    model.qconfig = torch.quantization.get_default_qconfig(backend)
+
+    # Prepare for quantization (fuses layers and adds observers)
+    model_prepared = torch.quantization.prepare(model)
+
+    # Calibrate by running sample data
+    with torch.no_grad():
+        for batch in calibration_data:
+            model_prepared(batch)
+
+    # Convert to quantized model
+    return torch.quantization.convert(model_prepared)
+
+
+def quantize_model_int4(model: nn.Module, group_size: int = 128) -> nn.Module:
+    """Quantize all linear layers in a model to INT4.
+    
+    Args:
+        model: Original model with nn.Linear layers
+        group_size: Group size for INT4 quantization (default 128)
+    
+    Returns:
+        Model with INT4 quantized linear layers
+    """
+    for name, module in list(model.named_modules()):
+        if isinstance(module, nn.Linear):
+            # Get parent module
+            parts = name.split('.')
+            parent = model
+            for part in parts[:-1]:
+                parent = getattr(parent, part)
+            
+            # Replace with quantized version
+            quantized = QuantizedLinearInt4.from_float(module, group_size)
+            setattr(parent, parts[-1], quantized)
+    
+    return model
+
+
+def quantize_model_int8(model: nn.Module) -> nn.Module:
+    """Quantize all linear layers in a model to INT8.
+    
+    Args:
+        model: Original model with nn.Linear layers
+    
+    Returns:
+        Model with INT8 quantized linear layers
+    """
+    for name, module in list(model.named_modules()):
+        if isinstance(module, nn.Linear):
+            # Get parent module
+            parts = name.split('.')
+            parent = model
+            for part in parts[:-1]:
+                parent = getattr(parent, part)
+            
+            # Replace with quantized version
+            quantized = QuantizedLinearInt8.from_float(module)
+            setattr(parent, parts[-1], quantized)
+    
+    return model

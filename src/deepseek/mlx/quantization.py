@@ -531,3 +531,273 @@ class FP8Linear(nn.Module):
         
         # Add bias
         return out + self.bias
+
+
+# ============================================================================
+# INT4/INT8 Inference Quantization (DeepSeek-V3.2 Production Deployment)
+# ============================================================================
+
+class QuantizedLinearInt4(nn.Module):
+    """INT4 quantized linear layer with per-group (128) scaling.
+    
+    Uses symmetric quantization with 128-element groups for accuracy.
+    Weights are stored as packed uint8 (2 values per byte).
+    
+    This is optimized for inference on Apple Silicon with MLX.
+    """
+
+    def __init__(self, in_features: int, out_features: int, group_size: int = 128, bias: bool = True):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.group_size = group_size
+        self._has_bias = bias
+
+        # Number of groups per input dimension
+        self.n_groups = (in_features + group_size - 1) // group_size
+        
+        # Padded input size (to align with group_size)
+        self.in_features_padded = self.n_groups * group_size
+
+        # Quantized weights: packed 4-bit (2 values per byte)
+        # Shape: (out_features, in_features_padded // 2)
+        self.weight_packed = mx.zeros((out_features, self.in_features_padded // 2), dtype=mx.uint8)
+        
+        # Per-group scales and zero points
+        # Shape: (out_features, n_groups)
+        self.scales = mx.zeros((out_features, self.n_groups), dtype=mx.float16)
+        self.zeros = mx.zeros((out_features, self.n_groups), dtype=mx.float16)
+        
+        # Optional bias
+        if bias:
+            self.bias = mx.zeros((out_features,), dtype=mx.float16)
+
+    @classmethod
+    def from_float(cls, linear: nn.Linear, group_size: int = 128) -> "QuantizedLinearInt4":
+        """Convert a float linear layer to INT4 quantized.
+        
+        Args:
+            linear: Original nn.Linear layer
+            group_size: Number of elements per quantization group (default 128)
+        
+        Returns:
+            Quantized INT4 linear layer
+        """
+        in_features = linear.weight.shape[1]
+        out_features = linear.weight.shape[0]
+        has_bias = hasattr(linear, 'bias') and linear.bias is not None
+        
+        q = cls(in_features, out_features, group_size, bias=has_bias)
+        
+        weight = linear.weight.astype(mx.float32)
+        
+        # Pad weight if needed
+        if in_features != q.in_features_padded:
+            padding = q.in_features_padded - in_features
+            weight = mx.pad(weight, [(0, 0), (0, padding)])
+        
+        # Pre-allocate arrays for building up results
+        all_packed = []
+        all_scales = []
+        all_zeros = []
+        
+        # Quantize per group
+        for g in range(q.n_groups):
+            group_start = g * group_size
+            group_end = (g + 1) * group_size
+            group_weights = weight[:, group_start:group_end]
+
+            # Compute min/max for asymmetric quantization
+            w_min = mx.min(group_weights, axis=1, keepdims=True)
+            w_max = mx.max(group_weights, axis=1, keepdims=True)
+            
+            # Compute scale (range / 15 for 4-bit)
+            scale = (w_max - w_min) / 15.0
+            scale = mx.where(scale == 0, mx.array(1.0), scale)
+            
+            # Compute zero point
+            zero = -w_min / scale
+
+            # Quantize to 0-15 range
+            q_weights = mx.round((group_weights - w_min) / scale)
+            q_weights = mx.clip(q_weights, 0, 15).astype(mx.uint8)
+
+            # Pack nibbles (2 values per byte)
+            packed_group = []
+            for i in range(0, group_size, 2):
+                # Low nibble: even index, High nibble: odd index
+                packed = (q_weights[:, i + 1] << 4) | q_weights[:, i]
+                packed_group.append(packed)
+            
+            all_packed.append(mx.stack(packed_group, axis=1))
+            all_scales.append(scale.squeeze().astype(mx.float16))
+            all_zeros.append(zero.squeeze().astype(mx.float16))
+
+        # Stack all groups
+        q.weight_packed = mx.concatenate(all_packed, axis=1)
+        q.scales = mx.stack(all_scales, axis=1)
+        q.zeros = mx.stack(all_zeros, axis=1)
+
+        if has_bias:
+            q.bias = linear.bias.astype(mx.float16)
+
+        return q
+
+    def _dequantize(self) -> mx.array:
+        """Dequantize weights on-the-fly for inference."""
+        # Unpack nibbles
+        weight_low = self.weight_packed & 0x0F
+        weight_high = (self.weight_packed >> 4) & 0x0F
+        
+        # Interleave: create (out, in_padded) by interleaving low and high
+        # Stack and reshape to interleave
+        # weight_low: (out, in_padded//2), weight_high: (out, in_padded//2)
+        # We want: (out, in_padded) with [low0, high0, low1, high1, ...]
+        interleaved = mx.stack([weight_low, weight_high], axis=2)  # (out, in_padded//2, 2)
+        weight_unpacked = interleaved.reshape(self.out_features, self.in_features_padded).astype(mx.float16)
+        
+        # Dequantize per group using broadcasting
+        # Expand scales and zeros for broadcasting
+        scales_expanded = mx.repeat(self.scales, self.group_size, axis=1)  # (out, in_padded)
+        zeros_expanded = mx.repeat(self.zeros, self.group_size, axis=1)    # (out, in_padded)
+        
+        # Dequantize: value = (q_value - zero) * scale
+        weight_dequant = (weight_unpacked - zeros_expanded) * scales_expanded
+        
+        # Remove padding
+        return weight_dequant[:, :self.in_features]
+
+    def __call__(self, x: mx.array) -> mx.array:
+        """Forward pass with on-the-fly dequantization."""
+        weight = self._dequantize()
+        out = x @ weight.T
+        
+        if self._has_bias:
+            out = out + self.bias
+        
+        return out
+
+
+class QuantizedLinearInt8(nn.Module):
+    """INT8 quantized linear layer with per-channel scaling.
+    
+    Uses symmetric per-channel quantization for optimal accuracy/speed tradeoff.
+    Weights are stored as int8 with float16 per-channel scales.
+    
+    Optimized for inference on Apple Silicon with MLX.
+    """
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self._has_bias = bias
+
+        # Quantized weights (int8)
+        self.weight_int8 = mx.zeros((out_features, in_features), dtype=mx.int8)
+        
+        # Per-channel scales (one per output channel)
+        self.scale = mx.zeros((out_features,), dtype=mx.float16)
+        
+        # Optional bias
+        if bias:
+            self.bias = mx.zeros((out_features,), dtype=mx.float16)
+
+    @classmethod
+    def from_float(cls, linear: nn.Linear) -> "QuantizedLinearInt8":
+        """Convert a float linear layer to INT8 quantized.
+        
+        Uses symmetric per-channel quantization with scale = max_abs / 127.
+        
+        Args:
+            linear: Original nn.Linear layer
+        
+        Returns:
+            Quantized INT8 linear layer
+        """
+        in_features = linear.weight.shape[1]
+        out_features = linear.weight.shape[0]
+        has_bias = hasattr(linear, 'bias') and linear.bias is not None
+        
+        q = cls(in_features, out_features, bias=has_bias)
+        
+        weight = linear.weight.astype(mx.float32)
+
+        # Per-channel symmetric quantization
+        w_max = mx.max(mx.abs(weight), axis=1, keepdims=True)
+        scale = w_max / 127.0
+        scale = mx.where(scale == 0, mx.array(1.0), scale)
+
+        # Quantize to int8 (-128 to 127)
+        q.weight_int8 = mx.round(weight / scale).astype(mx.int8)
+        q.scale = scale.squeeze().astype(mx.float16)
+
+        if has_bias:
+            q.bias = linear.bias.astype(mx.float16)
+
+        return q
+
+    def _dequantize(self) -> mx.array:
+        """Dequantize weights on-the-fly for inference."""
+        # Dequantize: weight_float = weight_int8 * scale
+        weight_float = self.weight_int8.astype(mx.float16) * self.scale[:, None]
+        return weight_float
+
+    def __call__(self, x: mx.array) -> mx.array:
+        """Forward pass with on-the-fly dequantization."""
+        weight = self._dequantize()
+        out = x @ weight.T
+        
+        if self._has_bias:
+            out = out + self.bias
+        
+        return out
+
+
+def quantize_model_int4(model: nn.Module, group_size: int = 128) -> nn.Module:
+    """Quantize all linear layers in a model to INT4.
+    
+    Args:
+        model: Original model with nn.Linear layers
+        group_size: Group size for INT4 quantization (default 128)
+    
+    Returns:
+        Model with INT4 quantized linear layers
+    """
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            # Get parent module
+            parts = name.split('.')
+            parent = model
+            for part in parts[:-1]:
+                parent = getattr(parent, part)
+            
+            # Replace with quantized version
+            quantized = QuantizedLinearInt4.from_float(module, group_size)
+            setattr(parent, parts[-1], quantized)
+    
+    return model
+
+
+def quantize_model_int8(model: nn.Module) -> nn.Module:
+    """Quantize all linear layers in a model to INT8.
+    
+    Args:
+        model: Original model with nn.Linear layers
+    
+    Returns:
+        Model with INT8 quantized linear layers
+    """
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            # Get parent module
+            parts = name.split('.')
+            parent = model
+            for part in parts[:-1]:
+                parent = getattr(parent, part)
+            
+            # Replace with quantized version
+            quantized = QuantizedLinearInt8.from_float(module)
+            setattr(parent, parts[-1], quantized)
+    
+    return model

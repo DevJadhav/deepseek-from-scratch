@@ -1,15 +1,17 @@
-use deepseek_from_scratch_in_rust::model::{r1, reward_model};
-use deepseek_from_scratch_in_rust::training::{grpo, pipeline, sft, distillation};
-use deepseek_from_scratch_in_rust::benchmarks::{attention_benchmark, moe_benchmark, mtp_fp8_benchmark, training_benchmark};
+#![allow(unused_variables)]
+
+use deepseek_rust::model::{r1, reward_model};
+use deepseek_rust::training::{grpo, pipeline, sft, distillation};
+use deepseek_rust::benchmarks::{attention_benchmark, moe_benchmark, mtp_fp8_benchmark, training_benchmark};
 
 use candle_core::{Device, Tensor, Result, DType};
 use candle_nn::{VarBuilder, VarMap};
 use clap::{Parser, Subcommand};
-use deepseek_from_scratch_in_rust::model::attention::{MultiQueryAttention, GroupedQueryAttention};
-use deepseek_from_scratch_in_rust::model::mla::{MultiHeadLatentAttention, DeepSeekAttention};
-use deepseek_from_scratch_in_rust::model::moe::DeepSeekMoE;
-use deepseek_from_scratch_in_rust::model::mtp::MTPModel;
-use deepseek_from_scratch_in_rust::utils::logging;
+use deepseek_rust::model::attention::{MultiQueryAttention, GroupedQueryAttention};
+use deepseek_rust::model::mla::{MultiHeadLatentAttention, DeepSeekAttention};
+use deepseek_rust::model::moe::DeepSeekMoE;
+use deepseek_rust::model::mtp::MTPModel;
+use deepseek_rust::utils::logging;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -84,6 +86,24 @@ enum Commands {
         #[arg(short, long)]
         config: PathBuf,
     },
+    
+    /// Run inference server
+    Serve {
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+        
+        /// Path to model checkpoint
+        #[arg(short, long)]
+        model_path: PathBuf,
+        
+        /// Host to bind to
+        #[arg(long, default_value = "0.0.0.0")]
+        host: String,
+    },
+    
+    /// Verify CUDA distributed setup
+    VerifyCuda,
     
     /// Run demo of all components (default behavior)
     Demo,
@@ -205,6 +225,12 @@ fn main() -> Result<()> {
         }
         Some(Commands::Pretrain { config }) => {
             run_pretrain(config)?;
+        }
+        Some(Commands::Serve { port, model_path, host }) => {
+            run_server(port, model_path, host)?;
+        }
+        Some(Commands::VerifyCuda) => {
+            verify_cuda()?;
         }
         Some(Commands::Demo) | None => {
             run_demo()?;
@@ -566,7 +592,7 @@ fn run_demo() -> Result<()> {
 
     println!("\n--- Chapter 5: DeepSeek-R1 (Reasoning) ---");
     let vocab_size = 1000;
-    let r1_model = r1::ReasoningModel::new(vocab_size, d_model, vb.pp("r1_demo"))?;
+    let mut r1_model = r1::ReasoningModel::new(vocab_size, d_model, vb.pp("r1_demo"))?;
     let prompt = "DeepSeek architecture";
     let output = r1_model.generate_with_reasoning(prompt, &device)?;
     
@@ -997,5 +1023,91 @@ fn run_demo() -> Result<()> {
     // Run training benchmarks for Chapter 5-9
     training_benchmark::run_benchmark()?;
 
+    Ok(())
+}
+
+/// Run the inference server
+fn run_server(_port: u16, _model_path: PathBuf, _host: String) -> Result<()> {
+    info!("Starting inference server...");
+    
+    // Note: Full axum server implementation requires async runtime
+    // For now, we provide a synchronous placeholder that can be extended
+    
+    println!("=== DeepSeek Inference Server ===");
+    println!("Port: {}", _port);
+    println!("Host: {}", _host);
+    println!("Model: {:?}", _model_path);
+    println!();
+    println!("Note: Full async server requires tokio runtime.");
+    println!("For production deployment, use the Python inference_server.py");
+    println!("or build with --features server for full async support.");
+    println!();
+    
+    // Basic health check endpoint simulation
+    println!("Available endpoints:");
+    println!("  GET  /health     - Health check");
+    println!("  POST /generate   - Generate text");
+    println!("  POST /v1/completions - OpenAI-compatible completions");
+    
+    // In a full implementation, we would:
+    // 1. Load the model from model_path
+    // 2. Start an axum server with routes
+    // 3. Handle requests with generation logic
+    
+    // For now, we just verify the model exists
+    if !_model_path.exists() {
+        return Err(candle_core::Error::Msg(format!(
+            "Model path does not exist: {:?}", _model_path
+        )));
+    }
+    
+    println!("\nModel path verified. Server stub complete.");
+    println!("Use scripts/inference_server.py for full server functionality.");
+    
+    Ok(())
+}
+
+/// Verify CUDA distributed setup
+fn verify_cuda() -> Result<()> {
+    println!("=== CUDA Distributed Verification ===\n");
+    
+    #[cfg(feature = "cuda")]
+    {
+        println!("CUDA feature enabled.");
+        
+        // Try to get CUDA device
+        match Device::cuda_if_available(0) {
+            Ok(device) => {
+                println!("✓ CUDA device 0 available: {:?}", device);
+                
+                // Test basic tensor operations
+                let a = Tensor::randn(0f32, 1f32, (128, 128), &device)?;
+                let b = Tensor::randn(0f32, 1f32, (128, 128), &device)?;
+                let _c = a.matmul(&b)?;
+                println!("✓ CUDA tensor operations working");
+                
+                // Check if NCCL would be available
+                println!("\nNCCL Status:");
+                println!("  Note: NCCL verification requires multi-process setup");
+                println!("  Use 'torchrun' or 'mpirun' for distributed training");
+            }
+            Err(e) => {
+                println!("✗ CUDA device not available: {}", e);
+                println!("\nFallback: Using CPU device");
+            }
+        }
+    }
+    
+    #[cfg(not(feature = "cuda"))]
+    {
+        println!("CUDA feature not enabled.");
+        println!("Build with: cargo build --features cuda");
+        println!("\nUsing Metal (Apple Silicon) or CPU backend.");
+        
+        let device = get_device()?;
+        println!("Current device: {:?}", device);
+    }
+    
+    println!("\n=== Verification Complete ===");
     Ok(())
 }

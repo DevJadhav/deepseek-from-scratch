@@ -1049,6 +1049,301 @@ impl FP8Linear {
 }
 
 // ============================================================================
+// INT4/INT8 Inference Quantization (DeepSeek-V3.2 Production Deployment)
+// ============================================================================
+
+/// INT8 quantized tensor with per-channel scaling
+pub struct QuantizedTensorInt8 {
+    /// Quantized data as i8
+    data: Vec<i8>,
+    /// Per-channel scales
+    scales: Vec<f32>,
+    /// Original shape
+    shape: Vec<usize>,
+}
+
+impl QuantizedTensorInt8 {
+    /// Create a quantized tensor from a Candle tensor
+    pub fn from_tensor(tensor: &Tensor) -> Result<Self> {
+        let shape = tensor.shape().dims().to_vec();
+        let data_f32: Vec<f32> = tensor.flatten_all()?.to_vec1()?;
+
+        // Compute per-channel scales (assuming last dim is features)
+        let n_channels = *shape.last().unwrap();
+        let n_elements_per_channel = data_f32.len() / n_channels;
+
+        let mut scales = vec![0f32; n_channels];
+        let mut data_i8 = vec![0i8; data_f32.len()];
+
+        for c in 0..n_channels {
+            // Find max absolute value for this channel
+            let channel_max = (0..n_elements_per_channel)
+                .map(|i| data_f32[i * n_channels + c].abs())
+                .fold(0f32, f32::max);
+            
+            let scale = if channel_max == 0.0 { 1.0 } else { channel_max / 127.0 };
+            scales[c] = scale;
+
+            // Quantize this channel
+            for i in 0..n_elements_per_channel {
+                let idx = i * n_channels + c;
+                let quantized = (data_f32[idx] / scale).round().clamp(-128.0, 127.0) as i8;
+                data_i8[idx] = quantized;
+            }
+        }
+
+        Ok(Self { data: data_i8, scales, shape })
+    }
+
+    /// Dequantize to a Candle tensor
+    pub fn to_tensor(&self, device: &candle_core::Device) -> Result<Tensor> {
+        let n_channels = *self.shape.last().unwrap();
+        let n_elements_per_channel = self.data.len() / n_channels;
+
+        let mut data_f32 = vec![0f32; self.data.len()];
+        
+        for c in 0..n_channels {
+            let scale = self.scales[c];
+            for i in 0..n_elements_per_channel {
+                let idx = i * n_channels + c;
+                data_f32[idx] = self.data[idx] as f32 * scale;
+            }
+        }
+
+        Tensor::from_vec(data_f32, self.shape.as_slice(), device)
+    }
+
+    /// Get the quantized data
+    pub fn data(&self) -> &[i8] {
+        &self.data
+    }
+
+    /// Get the scales
+    pub fn scales(&self) -> &[f32] {
+        &self.scales
+    }
+
+    /// Get the shape
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+}
+
+/// INT4 quantized tensor with per-group scaling
+pub struct QuantizedTensorInt4 {
+    /// Packed 4-bit data (2 values per byte)
+    data_packed: Vec<u8>,
+    /// Per-group scales
+    scales: Vec<f32>,
+    /// Per-group zero points
+    zeros: Vec<f32>,
+    /// Original shape
+    shape: Vec<usize>,
+    /// Group size for quantization
+    group_size: usize,
+}
+
+impl QuantizedTensorInt4 {
+    /// Create a quantized tensor from a Candle tensor
+    pub fn from_tensor(tensor: &Tensor, group_size: usize) -> Result<Self> {
+        let shape = tensor.shape().dims().to_vec();
+        let data_f32: Vec<f32> = tensor.flatten_all()?.to_vec1()?;
+        let n_elements = data_f32.len();
+        
+        // Pad to group size
+        let n_groups = n_elements.div_ceil(group_size);
+        let padded_size = n_groups * group_size;
+        
+        let mut padded_data = data_f32.clone();
+        padded_data.resize(padded_size, 0.0);
+        
+        let mut scales = vec![0f32; n_groups];
+        let mut zeros = vec![0f32; n_groups];
+        let mut data_packed = vec![0u8; padded_size / 2];
+        
+        for g in 0..n_groups {
+            let group_start = g * group_size;
+            let group_end = group_start + group_size;
+            
+            // Find min/max for asymmetric quantization
+            let group_slice = &padded_data[group_start..group_end];
+            let g_min = group_slice.iter().cloned().fold(f32::INFINITY, f32::min);
+            let g_max = group_slice.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            
+            // Compute scale (range / 15 for 4-bit)
+            let scale = if (g_max - g_min).abs() < 1e-10 {
+                1.0
+            } else {
+                (g_max - g_min) / 15.0
+            };
+            
+            // Compute zero point
+            let zero = -g_min / scale;
+            
+            scales[g] = scale;
+            zeros[g] = zero;
+            
+            // Quantize and pack nibbles
+            for i in (group_start..group_end).step_by(2) {
+                let v0 = ((padded_data[i] - g_min) / scale).round().clamp(0.0, 15.0) as u8;
+                let v1 = ((padded_data[i + 1] - g_min) / scale).round().clamp(0.0, 15.0) as u8;
+                let packed = v0 | (v1 << 4);
+                data_packed[i / 2] = packed;
+            }
+        }
+        
+        Ok(Self {
+            data_packed,
+            scales,
+            zeros,
+            shape,
+            group_size,
+        })
+    }
+    
+    /// Dequantize to a Candle tensor
+    pub fn to_tensor(&self, device: &candle_core::Device) -> Result<Tensor> {
+        let n_elements: usize = self.shape.iter().product();
+        let n_groups = self.scales.len();
+        let padded_size = n_groups * self.group_size;
+        
+        let mut data_f32 = vec![0f32; padded_size];
+        
+        for g in 0..n_groups {
+            let scale = self.scales[g];
+            let zero = self.zeros[g];
+            let group_start = g * self.group_size;
+            
+            for i in (0..self.group_size).step_by(2) {
+                let packed = self.data_packed[(group_start + i) / 2];
+                let v0 = (packed & 0x0F) as f32;
+                let v1 = ((packed >> 4) & 0x0F) as f32;
+                
+                data_f32[group_start + i] = (v0 - zero) * scale;
+                data_f32[group_start + i + 1] = (v1 - zero) * scale;
+            }
+        }
+        
+        // Truncate to original size
+        data_f32.truncate(n_elements);
+        
+        Tensor::from_vec(data_f32, self.shape.as_slice(), device)
+    }
+
+    /// Get the packed data
+    pub fn data_packed(&self) -> &[u8] {
+        &self.data_packed
+    }
+
+    /// Get the scales
+    pub fn scales(&self) -> &[f32] {
+        &self.scales
+    }
+
+    /// Get the zero points
+    pub fn zeros(&self) -> &[f32] {
+        &self.zeros
+    }
+
+    /// Get the group size
+    pub fn group_size(&self) -> usize {
+        self.group_size
+    }
+}
+
+/// INT8 quantized linear layer
+pub struct QuantizedLinearInt8 {
+    /// Quantized weight
+    weight: QuantizedTensorInt8,
+    /// Optional bias (not quantized)
+    bias: Option<Tensor>,
+    /// Input features
+    #[allow(dead_code)]
+    in_features: usize,
+    /// Output features
+    #[allow(dead_code)]
+    out_features: usize,
+}
+
+impl QuantizedLinearInt8 {
+    /// Create from an existing linear layer's weight and bias
+    pub fn from_weight_bias(weight: &Tensor, bias: Option<&Tensor>) -> Result<Self> {
+        let shape = weight.shape().dims();
+        let out_features = shape[0];
+        let in_features = shape[1];
+        
+        let quantized_weight = QuantizedTensorInt8::from_tensor(weight)?;
+        
+        Ok(Self {
+            weight: quantized_weight,
+            bias: bias.cloned(),
+            in_features,
+            out_features,
+        })
+    }
+    
+    /// Forward pass with dequantization
+    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let device = x.device();
+        let weight_dequant = self.weight.to_tensor(device)?;
+        
+        // x @ weight.T
+        let out = x.matmul(&weight_dequant.t()?)?;
+        
+        match &self.bias {
+            Some(bias) => out.broadcast_add(bias),
+            None => Ok(out),
+        }
+    }
+}
+
+/// INT4 quantized linear layer
+pub struct QuantizedLinearInt4 {
+    /// Quantized weight
+    weight: QuantizedTensorInt4,
+    /// Optional bias (not quantized)
+    bias: Option<Tensor>,
+    /// Input features
+    #[allow(dead_code)]
+    in_features: usize,
+    /// Output features
+    #[allow(dead_code)]
+    out_features: usize,
+}
+
+impl QuantizedLinearInt4 {
+    /// Create from an existing linear layer's weight and bias
+    pub fn from_weight_bias(weight: &Tensor, bias: Option<&Tensor>, group_size: usize) -> Result<Self> {
+        let shape = weight.shape().dims();
+        let out_features = shape[0];
+        let in_features = shape[1];
+        
+        let quantized_weight = QuantizedTensorInt4::from_tensor(weight, group_size)?;
+        
+        Ok(Self {
+            weight: quantized_weight,
+            bias: bias.cloned(),
+            in_features,
+            out_features,
+        })
+    }
+    
+    /// Forward pass with dequantization
+    pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
+        let device = x.device();
+        let weight_dequant = self.weight.to_tensor(device)?;
+        
+        // x @ weight.T
+        let out = x.matmul(&weight_dequant.t()?)?;
+        
+        match &self.bias {
+            Some(bias) => out.broadcast_add(bias),
+            None => Ok(out),
+        }
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

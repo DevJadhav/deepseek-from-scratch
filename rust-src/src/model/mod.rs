@@ -1,10 +1,14 @@
 pub mod attention;
+pub mod cuda_hopper;
+pub mod inference;
+pub mod kernel_strategy;
+pub mod kv_cache;
+pub mod metal_kernels;
 pub mod mla;
+pub mod mla_rank_constraints;
 pub mod moe;
 pub mod mtp;
 pub mod quantization;
 pub mod r1;
 pub mod reward_model;
-pub mod kv_cache;
 pub mod sparse_attention;
-pub mod inference;

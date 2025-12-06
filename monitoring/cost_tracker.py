@@ -11,6 +11,9 @@ Features:
 - Budget threshold alerts (50%, 75%, 90%, 95%)
 - Persist to JSON for recovery
 - Historical cost tracking
+- Real-time $/token tracking (Section 4.3 paper experiments)
+- Energy efficiency metrics (Joules/token)
+- Cluster cost analysis for heterogeneous setups
 
 Usage:
     from monitoring.cost_tracker import CostTracker
@@ -25,11 +28,14 @@ Usage:
 from __future__ import annotations
 
 import json
+import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 
 class GPUType(Enum):
@@ -40,11 +46,28 @@ class GPUType(Enum):
     A100_40GB = 2.21
     A10G = 1.10
     T4 = 0.76
+    # Apple Silicon (estimated cloud rates)
+    M2_ULTRA = 1.50
+    M3_MAX = 0.85
 
     @property
     def hourly_rate(self) -> float:
         """Get hourly rate for this GPU type."""
         return self.value
+    
+    @property
+    def tdp_watts(self) -> float:
+        """Get TDP in watts for energy calculations."""
+        tdp_map = {
+            "H100": 700,
+            "A100_80GB": 400,
+            "A100_40GB": 400,
+            "A10G": 150,
+            "T4": 70,
+            "M2_ULTRA": 60,
+            "M3_MAX": 40,
+        }
+        return tdp_map.get(self.name, 300)
 
 
 class AlertLevel(Enum):
@@ -471,3 +494,313 @@ def create_tracker(
         gpu_type=GPUType[gpu_type],
         persist_path=Path(persist_path) if persist_path else None,
     )
+
+
+# ============================================================================
+# Section 4.3 Paper Experiments: Real-Time Cost Analysis
+# ============================================================================
+
+
+@dataclass
+class TokenMetrics:
+    """Real-time token processing metrics for $/token analysis."""
+    
+    total_tokens: int = 0
+    tokens_per_second: float = 0.0
+    cost_per_token: float = 0.0
+    cost_per_million_tokens: float = 0.0
+    energy_per_token_joules: float = 0.0
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "total_tokens": self.total_tokens,
+            "tokens_per_second": self.tokens_per_second,
+            "cost_per_token": self.cost_per_token,
+            "cost_per_million_tokens": self.cost_per_million_tokens,
+            "energy_per_token_joules": self.energy_per_token_joules,
+        }
+
+
+@dataclass
+class ClusterCostMetrics:
+    """Cost metrics for heterogeneous cluster analysis (A4 experiment)."""
+    
+    # Cluster composition
+    h100_count: int = 0
+    a100_count: int = 0
+    a10g_count: int = 0
+    metal_count: int = 0
+    
+    # Cost breakdown
+    total_hourly_cost: float = 0.0
+    cost_per_device: dict[str, float] = field(default_factory=dict)
+    
+    # Efficiency metrics
+    throughput_per_dollar: float = 0.0
+    tokens_per_dollar: float = 0.0
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "h100_count": self.h100_count,
+            "a100_count": self.a100_count,
+            "a10g_count": self.a10g_count,
+            "metal_count": self.metal_count,
+            "total_hourly_cost": self.total_hourly_cost,
+            "cost_per_device": self.cost_per_device,
+            "throughput_per_dollar": self.throughput_per_dollar,
+            "tokens_per_dollar": self.tokens_per_dollar,
+        }
+
+
+@dataclass
+class EnergyMetrics:
+    """Energy consumption metrics for Figure 1 (Throughput vs Energy)."""
+    
+    total_energy_joules: float = 0.0
+    total_energy_kwh: float = 0.0
+    avg_power_watts: float = 0.0
+    peak_power_watts: float = 0.0
+    energy_efficiency_tokens_per_joule: float = 0.0
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "total_energy_joules": self.total_energy_joules,
+            "total_energy_kwh": self.total_energy_kwh,
+            "avg_power_watts": self.avg_power_watts,
+            "peak_power_watts": self.peak_power_watts,
+            "energy_efficiency_tokens_per_joule": self.energy_efficiency_tokens_per_joule,
+        }
+
+
+class RealTimeCostAnalyzer:
+    """
+    Real-time cost analyzer for paper experiments (Section 4.3).
+    
+    Tracks:
+    - $/token in real-time
+    - Energy efficiency (Joules/token)
+    - Cluster cost analysis for heterogeneous setups
+    - Throughput vs cost trade-offs
+    """
+    
+    def __init__(
+        self,
+        tracker: CostTracker,
+        update_interval_seconds: float = 1.0,
+    ):
+        self.tracker = tracker
+        self.update_interval = update_interval_seconds
+        
+        # Token tracking
+        self._total_tokens = 0
+        self._token_timestamps: list[tuple[float, int]] = []  # (timestamp, token_count)
+        
+        # Energy tracking
+        self._energy_samples: list[tuple[float, float]] = []  # (timestamp, power_watts)
+        self._total_energy_joules = 0.0
+        
+        # Cluster composition
+        self._cluster_devices: dict[str, int] = {}
+        
+        # Real-time metrics
+        self._current_metrics: TokenMetrics = TokenMetrics()
+        self._cluster_metrics: ClusterCostMetrics = ClusterCostMetrics()
+        self._energy_metrics: EnergyMetrics = EnergyMetrics()
+        
+        # Background update thread
+        self._running = False
+        self._update_thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+    
+    def start(self) -> None:
+        """Start real-time monitoring."""
+        self._running = True
+        self._update_thread = threading.Thread(target=self._update_loop, daemon=True)
+        self._update_thread.start()
+    
+    def stop(self) -> None:
+        """Stop real-time monitoring."""
+        self._running = False
+        if self._update_thread:
+            self._update_thread.join(timeout=2.0)
+    
+    def record_tokens(self, token_count: int) -> None:
+        """Record tokens processed."""
+        with self._lock:
+            now = time.time()
+            self._total_tokens += token_count
+            self._token_timestamps.append((now, token_count))
+            
+            # Keep only last 60 seconds of timestamps
+            cutoff = now - 60.0
+            self._token_timestamps = [
+                (ts, tc) for ts, tc in self._token_timestamps if ts > cutoff
+            ]
+    
+    def record_power_sample(self, power_watts: float) -> None:
+        """Record a power consumption sample."""
+        with self._lock:
+            now = time.time()
+            self._energy_samples.append((now, power_watts))
+            
+            # Calculate incremental energy
+            if len(self._energy_samples) >= 2:
+                prev_ts, prev_power = self._energy_samples[-2]
+                dt = now - prev_ts
+                avg_power = (prev_power + power_watts) / 2
+                self._total_energy_joules += avg_power * dt
+            
+            # Keep only last 60 seconds
+            cutoff = now - 60.0
+            self._energy_samples = [
+                (ts, pw) for ts, pw in self._energy_samples if ts > cutoff
+            ]
+    
+    def set_cluster_composition(
+        self,
+        h100_count: int = 0,
+        a100_count: int = 0,
+        a10g_count: int = 0,
+        metal_count: int = 0,
+    ) -> None:
+        """Set the cluster device composition for cost analysis."""
+        self._cluster_devices = {
+            "H100": h100_count,
+            "A100_80GB": a100_count,
+            "A10G": a10g_count,
+            "M2_ULTRA": metal_count,
+        }
+        self._update_cluster_metrics()
+    
+    def _update_loop(self) -> None:
+        """Background update loop."""
+        while self._running:
+            self._update_metrics()
+            time.sleep(self.update_interval)
+    
+    def _update_metrics(self) -> None:
+        """Update all real-time metrics."""
+        with self._lock:
+            now = time.time()
+            
+            # Calculate tokens per second (last 10 seconds)
+            recent_cutoff = now - 10.0
+            recent_tokens = sum(
+                tc for ts, tc in self._token_timestamps if ts > recent_cutoff
+            )
+            tokens_per_second = recent_tokens / 10.0 if recent_tokens > 0 else 0.0
+            
+            # Calculate cost per token
+            total_cost = self.tracker.total_cost
+            cost_per_token = total_cost / max(1, self._total_tokens)
+            cost_per_million = cost_per_token * 1_000_000
+            
+            # Calculate energy per token
+            energy_per_token = self._total_energy_joules / max(1, self._total_tokens)
+            
+            # Update current metrics
+            self._current_metrics = TokenMetrics(
+                total_tokens=self._total_tokens,
+                tokens_per_second=tokens_per_second,
+                cost_per_token=cost_per_token,
+                cost_per_million_tokens=cost_per_million,
+                energy_per_token_joules=energy_per_token,
+            )
+            
+            # Update energy metrics
+            if self._energy_samples:
+                powers = [pw for _, pw in self._energy_samples]
+                self._energy_metrics = EnergyMetrics(
+                    total_energy_joules=self._total_energy_joules,
+                    total_energy_kwh=self._total_energy_joules / 3_600_000,
+                    avg_power_watts=sum(powers) / len(powers),
+                    peak_power_watts=max(powers),
+                    energy_efficiency_tokens_per_joule=(
+                        self._total_tokens / max(1, self._total_energy_joules)
+                    ),
+                )
+    
+    def _update_cluster_metrics(self) -> None:
+        """Update cluster cost metrics."""
+        total_hourly = 0.0
+        cost_per_device: dict[str, float] = {}
+        
+        for device_type, count in self._cluster_devices.items():
+            if count > 0:
+                try:
+                    gpu = GPUType[device_type]
+                    device_cost = gpu.hourly_rate * count
+                    total_hourly += device_cost
+                    cost_per_device[device_type] = device_cost
+                except KeyError:
+                    pass
+        
+        # Calculate efficiency metrics
+        throughput = self._current_metrics.tokens_per_second * 3600  # tokens/hour
+        tokens_per_dollar = throughput / max(0.01, total_hourly)
+        throughput_per_dollar = tokens_per_dollar
+        
+        self._cluster_metrics = ClusterCostMetrics(
+            h100_count=self._cluster_devices.get("H100", 0),
+            a100_count=self._cluster_devices.get("A100_80GB", 0),
+            a10g_count=self._cluster_devices.get("A10G", 0),
+            metal_count=self._cluster_devices.get("M2_ULTRA", 0),
+            total_hourly_cost=total_hourly,
+            cost_per_device=cost_per_device,
+            throughput_per_dollar=throughput_per_dollar,
+            tokens_per_dollar=tokens_per_dollar,
+        )
+    
+    def get_current_metrics(self) -> TokenMetrics:
+        """Get current token metrics."""
+        return self._current_metrics
+    
+    def get_cluster_metrics(self) -> ClusterCostMetrics:
+        """Get cluster cost metrics."""
+        return self._cluster_metrics
+    
+    def get_energy_metrics(self) -> EnergyMetrics:
+        """Get energy metrics."""
+        return self._energy_metrics
+    
+    def get_full_analysis(self) -> dict[str, Any]:
+        """Get complete cost analysis for paper experiments."""
+        return {
+            "token_metrics": self._current_metrics.to_dict(),
+            "cluster_metrics": self._cluster_metrics.to_dict(),
+            "energy_metrics": self._energy_metrics.to_dict(),
+            "tracker_summary": self.tracker.get_summary(),
+        }
+    
+    def export_paper_figures_data(self) -> dict[str, Any]:
+        """
+        Export data suitable for paper figures (Section 4.3).
+        
+        Returns data for:
+        - Figure 1: Throughput vs Energy
+        - Figure 2: Mixed Cluster Efficiency  
+        - A4: Cluster cost analysis
+        """
+        return {
+            "figure_1_throughput_energy": {
+                "throughput_tokens_per_sec": self._current_metrics.tokens_per_second,
+                "energy_joules_per_token": self._current_metrics.energy_per_token_joules,
+                "cost_per_million_tokens": self._current_metrics.cost_per_million_tokens,
+            },
+            "figure_2_cluster_efficiency": {
+                "device_composition": self._cluster_devices,
+                "total_hourly_cost": self._cluster_metrics.total_hourly_cost,
+                "tokens_per_dollar": self._cluster_metrics.tokens_per_dollar,
+            },
+            "a4_cluster_cost": {
+                "cost_breakdown": self._cluster_metrics.cost_per_device,
+                "efficiency_per_device_type": {
+                    device: self._cluster_metrics.tokens_per_dollar / max(1, count)
+                    for device, count in self._cluster_devices.items()
+                    if count > 0
+                },
+            },
+        }

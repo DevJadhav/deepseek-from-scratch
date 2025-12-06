@@ -15,7 +15,7 @@ use candle_core::{Device, DType, Result, Tensor};
 
 mod attention_tests {
     use super::*;
-    use deepseek_from_scratch_in_rust::model::attention::{
+    use deepseek_rust::model::attention::{
         AttentionConfig, AttentionBackend, scaled_dot_product_attention,
         standard_attention, chunked_attention, detect_optimal_backend,
     };
@@ -194,7 +194,7 @@ mod attention_tests {
 
 mod mixed_precision_tests {
     use super::*;
-    use deepseek_from_scratch_in_rust::utils::mixed_precision::{
+    use deepseek_rust::utils::mixed_precision::{
         PrecisionMode, MixedPrecisionConfig,
     };
 
@@ -327,7 +327,7 @@ mod mixed_precision_tests {
 
 mod memory_tests {
     use super::*;
-    use deepseek_from_scratch_in_rust::utils::memory::{
+    use deepseek_rust::utils::memory::{
         MemoryStats, MemoryProfiler, ProfileRegion,
     };
 
@@ -427,7 +427,7 @@ mod memory_tests {
 
 mod checkpointing_tests {
     use super::*;
-    use deepseek_from_scratch_in_rust::training::checkpointing::CheckpointConfig;
+    use deepseek_rust::training::checkpointing::CheckpointConfig;
 
     #[test]
     fn test_checkpoint_config_default() {
@@ -506,8 +506,8 @@ mod checkpointing_tests {
 
 mod integration_tests {
     use super::*;
-    use deepseek_from_scratch_in_rust::model::attention::{AttentionConfig, scaled_dot_product_attention};
-    use deepseek_from_scratch_in_rust::utils::mixed_precision::MixedPrecisionConfig;
+    use deepseek_rust::model::attention::{AttentionConfig, scaled_dot_product_attention};
+    use deepseek_rust::utils::mixed_precision::MixedPrecisionConfig;
 
     #[test]
     fn test_attention_with_mixed_precision() -> Result<()> {
@@ -539,7 +539,7 @@ mod integration_tests {
 
     #[test]
     fn test_memory_tracking_during_attention() -> Result<()> {
-        use deepseek_from_scratch_in_rust::utils::memory::MemoryProfiler;
+        use deepseek_rust::utils::memory::MemoryProfiler;
 
         let device = Device::Cpu;
         let mut profiler = MemoryProfiler::new(device.clone());
@@ -563,7 +563,7 @@ mod integration_tests {
 
     #[test]
     fn test_mixed_precision_with_checkpointing() {
-        use deepseek_from_scratch_in_rust::training::checkpointing::CheckpointConfig;
+        use deepseek_rust::training::checkpointing::CheckpointConfig;
 
         // Configure mixed precision
         let mp_config = MixedPrecisionConfig::bf16();
@@ -581,8 +581,8 @@ mod integration_tests {
 
     #[test]
     fn test_full_pipeline_config() {
-        use deepseek_from_scratch_in_rust::model::attention::AttentionBackend;
-        use deepseek_from_scratch_in_rust::training::checkpointing::CheckpointConfig;
+        use deepseek_rust::model::attention::AttentionBackend;
+        use deepseek_rust::training::checkpointing::CheckpointConfig;
 
         // Attention config
         let attn_config = AttentionConfig {

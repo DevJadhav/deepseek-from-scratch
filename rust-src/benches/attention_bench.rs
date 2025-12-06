@@ -8,7 +8,7 @@ use candle_core::{Device, DType, Tensor};
 use candle_nn::{VarBuilder, VarMap};
 
 // Import the MLA module
-use deepseek_from_scratch_in_rust::model::mla::{
+use deepseek_rust::model::mla::{
     MultiHeadLatentAttention,
     DeepSeekAttention,
     RotaryPositionalEncoding,
@@ -16,7 +16,7 @@ use deepseek_from_scratch_in_rust::model::mla::{
     RoPEConfig,
     RoPEScalingType,
 };
-use deepseek_from_scratch_in_rust::model::kv_cache::{KVCache, LatentKVCache};
+use deepseek_rust::model::kv_cache::{KVCache, LatentKVCache};
 
 fn benchmark_vanilla_attention(c: &mut Criterion) {
     let mut group = c.benchmark_group("attention_vanilla");

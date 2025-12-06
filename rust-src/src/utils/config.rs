@@ -375,13 +375,11 @@ impl DeepSeekConfig {
         }
         
         // Validate TP compatibility
-        if self.distributed.tp_size > 1 {
-            if self.model.num_heads % self.distributed.tp_size != 0 {
-                return Err(DeepSeekError::Config(format!(
-                    "num_heads ({}) must be divisible by tp_size ({})",
-                    self.model.num_heads, self.distributed.tp_size
-                )));
-            }
+        if self.distributed.tp_size > 1 && self.model.num_heads % self.distributed.tp_size != 0 {
+            return Err(DeepSeekError::Config(format!(
+                "num_heads ({}) must be divisible by tp_size ({})",
+                self.model.num_heads, self.distributed.tp_size
+            )));
         }
         
         Ok(())

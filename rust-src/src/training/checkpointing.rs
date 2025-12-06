@@ -23,9 +23,8 @@
 //! let checkpointed = CheckpointedModule::new(transformer_layer, config);
 //! ```
 
-use candle_core::{Device, Result, Tensor};
+use candle_core::{Result, Tensor};
 use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Configuration for gradient checkpointing
 #[derive(Debug, Clone)]

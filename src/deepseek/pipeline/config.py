@@ -403,6 +403,69 @@ class WaveBackend(Enum):
 
 
 @dataclass
+class ResourceRequirements:
+    """Resource requirements for heterogeneous scheduling.
+    
+    Defines the hardware resources required to run a task or wave,
+    enabling Ray to schedule work on appropriate nodes in a
+    heterogeneous cluster (Apple Silicon, NVIDIA GPUs, etc.)
+    """
+    # Core resource requirements (type -> quantity)
+    resources: Dict[str, float] = field(default_factory=dict)
+    # Soft preferences (not strictly required)
+    preferences: Dict[str, float] = field(default_factory=dict)
+    # Node affinity labels
+    node_affinity: List[str] = field(default_factory=list)
+    # Anti-affinity labels (avoid nodes with these labels)
+    node_anti_affinity: List[str] = field(default_factory=list)
+    
+    def require(self, resource_type: str, quantity: float) -> "ResourceRequirements":
+        """Add a required resource."""
+        self.resources[resource_type] = quantity
+        return self
+    
+    def prefer(self, resource_type: str, quantity: float) -> "ResourceRequirements":
+        """Add a soft preference for a resource."""
+        self.preferences[resource_type] = quantity
+        return self
+    
+    @classmethod
+    def apple_silicon(cls, memory_gb: int = 36) -> "ResourceRequirements":
+        """Create requirements for Apple Silicon node."""
+        return cls(
+            resources={"metal": 1.0, "memory_gb": float(memory_gb)},
+            node_affinity=["apple_silicon"],
+        )
+    
+    @classmethod
+    def nvidia_h100(cls) -> "ResourceRequirements":
+        """Create requirements for NVIDIA H100 node."""
+        return cls(
+            resources={"cuda": 1.0, "cuda_compute_cap": 9.0, "gpu_memory_gb": 80.0},
+            node_affinity=["h100"],
+        )
+    
+    @classmethod
+    def nvidia_a100(cls) -> "ResourceRequirements":
+        """Create requirements for NVIDIA A100 node."""
+        return cls(
+            resources={"cuda": 1.0, "cuda_compute_cap": 8.0, "gpu_memory_gb": 40.0},
+            node_affinity=["a100"],
+        )
+    
+    @classmethod
+    def cpu_only(cls, cores: int = 4, memory_gb: int = 16) -> "ResourceRequirements":
+        """Create requirements for CPU-only node."""
+        return cls(
+            resources={"cpu_cores": float(cores), "memory_gb": float(memory_gb)},
+        )
+    
+    def to_ray_resources(self) -> Dict[str, float]:
+        """Convert to Ray resource specification."""
+        return self.resources.copy()
+
+
+@dataclass
 class WaveConfig:
     """Configuration for a single time-sliced wave."""
     wave_id: int
@@ -411,10 +474,23 @@ class WaveConfig:
     end_step: int
     stages: List[str] = field(default_factory=list)
     checkpoint_from: Optional[str] = None  # Previous wave checkpoint path
+    # Resource requirements for heterogeneous scheduling
+    resources: Optional[ResourceRequirements] = None
     
     @property
     def num_steps(self) -> int:
         return self.end_step - self.start_step
+    
+    def get_ray_resources(self) -> Dict[str, float]:
+        """Get Ray resource specification for this wave."""
+        if self.resources:
+            return self.resources.to_ray_resources()
+        # Default resources based on backend
+        if self.backend in {WaveBackend.RUST_METAL, WaveBackend.MLX, WaveBackend.PYTORCH_MPS}:
+            return {"metal": 1.0}
+        elif self.backend in {WaveBackend.RUST_CUDA, WaveBackend.PYTORCH_CUDA}:
+            return {"cuda": 1.0}
+        return {}
 
 
 @dataclass

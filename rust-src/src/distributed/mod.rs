@@ -93,6 +93,7 @@ pub mod nccl_sys;
 pub mod nccl_backend;
 pub mod fault_tolerance;
 pub mod distributed_checkpoint;
+pub mod heterogeneous;
 
 // Re-export commonly used items
 pub use groups::{
@@ -112,6 +113,11 @@ pub use pipeline::{PipelineStage, OneFOneBScheduler, GPipeScheduler, ScheduleAct
 pub use ring_attention::{RingAttention, RingAttentionConfig, DistributedLayerNorm, DistributedRMSNorm, SequenceParallelConfig};
 pub use fault_tolerance::{ElasticConfig, ElasticTrainer, HeartbeatMonitor, PreemptionHandler, GracefulDegradation};
 pub use distributed_checkpoint::{CheckpointConfig, DistributedCheckpointer, AsyncCheckpointSaver, CheckpointMetadata};
+pub use heterogeneous::{
+    ResourceType, ResourceRequirements, NodeResources, NodeArchitecture,
+    PlacementStrategy, PlacementGroup, NodeHealthStatus, NetworkStatus,
+    ClusterHealthMonitor, ClusterHealthSummary, HeterogeneousScheduler, SchedulingError,
+};
 
 /// Synchronize gradients across ranks using all-reduce.
 /// 

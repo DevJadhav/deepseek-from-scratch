@@ -7,6 +7,7 @@
 //! - Dynamic draft/verify balancing
 
 use candle_core::{Device, DType, Result, Tensor, IndexOp};
+#[allow(unused_imports)]
 use crate::model::mtp::MTPModel;
 use crate::model::kv_cache::KVCache;
 
@@ -459,11 +460,13 @@ mod tests {
     
     #[test]
     fn test_speculative_stats() {
-        let mut stats = SpeculativeStats::default();
-        stats.accepted_tokens = 80;
-        stats.rejected_tokens = 20;
-        stats.total_tokens = 80;
-        stats.draft_rounds = 20;
+        let stats = SpeculativeStats {
+            accepted_tokens: 80,
+            rejected_tokens: 20,
+            total_tokens: 80,
+            draft_rounds: 20,
+            ..Default::default()
+        };
         
         let rate = stats.acceptance_rate();
         assert!((rate - 0.8).abs() < 0.01);

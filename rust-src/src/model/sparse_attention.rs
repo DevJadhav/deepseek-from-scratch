@@ -11,7 +11,8 @@
 //!
 //! Reference: DeepSeek-V3.2 Technical Report
 
-use candle_core::{Device, Result, Tensor, IndexOp, DType};
+#[allow(unused_imports)]
+use candle_core::{DType, Device, Result, Tensor};
 use candle_nn::{Linear, Module, VarBuilder, ops};
 use crate::model::mla::RotaryPositionalEncoding;
 
@@ -114,7 +115,7 @@ impl SparseAttentionPattern {
     /// 
     /// Creates a mask where 1.0 indicates positions to attend to, 0.0 otherwise
     fn generate_block_mask(config: &DSAConfig, seq_len: usize, device: &Device) -> Result<Tensor> {
-        let num_blocks = (seq_len + config.block_size - 1) / config.block_size;
+        let num_blocks = seq_len.div_ceil(config.block_size);
         
         // Initialize mask with zeros
         let mut mask_data = vec![0.0f32; num_blocks * num_blocks];
@@ -173,10 +174,8 @@ impl SparseAttentionPattern {
         // Add local window positions
         for &offset in &self.local_window_indices {
             let pos = query_pos as i64 + offset;
-            if pos >= 0 && (pos as usize) < seq_len {
-                if !causal || (pos as usize) <= query_pos {
-                    indices.push(pos as usize);
-                }
+            if pos >= 0 && (pos as usize) < seq_len && (!causal || (pos as usize) <= query_pos) {
+                indices.push(pos as usize);
             }
         }
         
@@ -386,7 +385,7 @@ impl DeepSeekSparseAttention {
         
         // Expand block mask to full attention size
         // Each block_mask[i,j] controls a block_size x block_size region
-        let num_blocks = (seq_len + block_size - 1) / block_size;
+        let num_blocks = seq_len.div_ceil(block_size);
         
         // Create full-size mask by repeating block mask
         let expanded_mask = block_mask
@@ -500,7 +499,7 @@ impl BlockSparseAttention {
     fn block_sparse_attention(&self, q: &Tensor, k: &Tensor, v: &Tensor) -> Result<Tensor> {
         let (batch_size, num_heads, seq_len, _) = q.dims4()?;
         let block_size = self.config.block_size;
-        let num_blocks = (seq_len + block_size - 1) / block_size;
+        let num_blocks = seq_len.div_ceil(block_size);
         
         // Initialize output accumulator
         let mut outputs = Vec::new();
@@ -734,7 +733,7 @@ impl SlidingWindowWithGlobalAttention {
         _global_indices: &Tensor,
     ) -> Result<Tensor> {
         let (batch_size, num_heads, seq_len, d_head) = q.dims4()?;
-        let window_size = self.config.window_size;
+        let _window_size = self.config.window_size;
         
         // For efficiency, compute full attention with sliding window mask
         let scale = 1.0 / (d_head as f64).sqrt();
@@ -787,6 +786,7 @@ mod tests {
     use super::*;
     use candle_nn::VarMap;
 
+    #[allow(dead_code)]
     fn setup_vb(device: &Device) -> VarBuilder<'static> {
         let varmap = VarMap::new();
         VarBuilder::from_varmap(&varmap, DType::F32, device)

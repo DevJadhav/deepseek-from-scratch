@@ -1,24 +1,45 @@
-"""Ray Data preparation stage."""
+"""Ray Data preparation stage with framework selection.
+
+This stage implements data preparation (tokenization, mixing, curriculum)
+with automatic framework selection for CPU-bound operations.
+
+Framework Selection Strategy (default):
+- Data Loading: Rust+CPU → Python+CPU
+- Tokenization: Rust+CPU → Python+CPU
+- Shuffling: Rust+CPU → Python+CPU
+
+The actual data processing uses Ray for parallelization,
+but framework selection determines optimal backends.
+
+Can be configured via:
+1. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
+2. PipelineConfig.framework_preset
+3. Direct FrameworkSelector injection
+"""
 
 from __future__ import annotations
 
-import json
-import math
-import os
+import logging
 from pathlib import Path
-from typing import Dict, List, Optional
 
-import numpy as np
 import ray
-from ray import worker
 import ray.data as rd
+from ray import worker
 from ray.data.dataset import Dataset
 
 from deepseek.pipeline.config import PipelineConfig
+from deepseek.pipeline.framework_selector import (
+    Framework,
+    FrameworkSelector,
+    PipelineFrameworkConfig,
+    TaskType,
+)
 from deepseek.pipeline.stages.base import BaseStage, StageContext
 
 # Prefer PyTorch implementation of pipeline utilities (has full feature set)
-from deepseek.torch.training.pipeline import DataMixer, CurriculumScheduler  # type: ignore
+from deepseek.torch.training.pipeline import CurriculumScheduler, DataMixer  # type: ignore
+
+LOGGER = logging.getLogger(__name__)
 
 try:
     from transformers import AutoTokenizer  # type: ignore
@@ -30,13 +51,58 @@ except ImportError as exc:  # pragma: no cover - handled at runtime
 
 
 class DataPrepStage(BaseStage):
-    """Builds a Ray Dataset with tokenized, curriculum-aware samples."""
+    """Builds a Ray Dataset with tokenized, curriculum-aware samples.
+
+    Supports framework selection for data processing operations,
+    though the actual execution uses Ray for distributed processing.
+
+    Configuration Options:
+    - framework_selector: Injected FrameworkSelector instance
+    - framework_preset: String preset ("default", "rust_primary", etc.)
+    """
 
     stage_name = "data_prep"
 
-    def __init__(self, config: PipelineConfig):
+    def __init__(
+        self,
+        config: PipelineConfig,
+        framework_selector: FrameworkSelector | None = None,
+        framework_preset: str | None = None,
+    ):
+        """Initialize DataPrep stage.
+
+        Args:
+            config: Pipeline configuration
+            framework_selector: Optional pre-configured selector
+            framework_preset: Optional preset name for framework config
+        """
         super().__init__(config)
         self.tokenizer = None
+
+        # Initialize framework selector
+        if framework_selector is not None:
+            self._framework_selector = framework_selector
+        elif framework_preset:
+            fw_config = PipelineFrameworkConfig.from_preset(framework_preset)
+            self._framework_selector = FrameworkSelector(fw_config)
+        else:
+            # Use default configuration
+            self._framework_selector = FrameworkSelector()
+
+        self._log_framework_selection()
+
+    def _log_framework_selection(self) -> None:
+        """Log selected frameworks for data processing tasks."""
+        data_fw = self._framework_selector.select(TaskType.DATA_LOADING)
+        tok_fw = self._framework_selector.select(TaskType.TOKENIZATION)
+        shuffle_fw = self._framework_selector.select(TaskType.SHUFFLING)
+
+        LOGGER.info(
+            "DataPrep framework selection: data_loading=%s, tokenization=%s, shuffling=%s",
+            data_fw.value,
+            tok_fw.value,
+            shuffle_fw.value,
+        )
 
     def setup(self):
         """Initializes Ray runtime and tokenizer."""
@@ -44,9 +110,7 @@ class DataPrepStage(BaseStage):
             self.logger.info("Initializing Ray runtime for data preparation stage")
             ray.init(address=self.config.distributed.ray_address or None, ignore_reinit_error=True)
 
-        tokenizer_name = (
-            self.config.data.tokenizer_path or self.config.data.tokenizer_name
-        )
+        tokenizer_name = self.config.data.tokenizer_path or self.config.data.tokenizer_name
         self.logger.info("Loading tokenizer %s", tokenizer_name)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
         if self.tokenizer.pad_token is None:
@@ -59,7 +123,7 @@ class DataPrepStage(BaseStage):
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Load per-domain datasets
-        domain_datasets: Dict[str, Dataset] = {}
+        domain_datasets: dict[str, Dataset] = {}
         for domain, weight in self.config.data.domain_weights.items():
             if weight <= 0:
                 continue
@@ -125,7 +189,7 @@ class DataPrepStage(BaseStage):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _read_domain_dataset(self, domain: str, base_dir: Path) -> Optional[Dataset]:
+    def _read_domain_dataset(self, domain: str, base_dir: Path) -> Dataset | None:
         """Load a domain dataset as a Ray Dataset."""
         domain_paths = self.config.data.domain_paths or {}
         path = Path(domain_paths.get(domain, base_dir / domain))
@@ -152,7 +216,7 @@ class DataPrepStage(BaseStage):
         else:
             return self._read_file(path)
 
-    def _read_file(self, path: Path) -> Optional[Dataset]:
+    def _read_file(self, path: Path) -> Dataset | None:
         suffix = path.suffix.lower()
         if suffix in {".jsonl", ".json"}:
             return ray.data.read_json(str(path))
@@ -163,11 +227,11 @@ class DataPrepStage(BaseStage):
         self.logger.warning("Unsupported file type %s", path)
         return None
 
-    def _mix_datasets(self, datasets: Dict[str, Dataset], mixer: DataMixer) -> Dataset:
+    def _mix_datasets(self, datasets: dict[str, Dataset], mixer: DataMixer) -> Dataset:
         """Interleave datasets proportionally to domain weights."""
         weights = mixer.weights
         min_weight = min(weights[domain] for domain in datasets.keys())
-        repeats: List[Dataset] = []
+        repeats: list[Dataset] = []
         for domain, ds in datasets.items():
             repeat_factor = max(1, int(round(weights[domain] / min_weight)))
             repeats.extend([ds] * repeat_factor)
@@ -192,3 +256,35 @@ class DataPrepStage(BaseStage):
             "input_ids": enc["input_ids"],
             "attention_mask": enc["attention_mask"],
         }
+
+    # ------------------------------------------------------------------
+    # Framework Selection API
+    # ------------------------------------------------------------------
+    def get_framework_selector(self) -> FrameworkSelector:
+        """Get the framework selector for inspection or modification.
+
+        Returns:
+            Current FrameworkSelector instance
+        """
+        return self._framework_selector
+
+    def set_framework_preset(self, preset: str) -> None:
+        """Change framework preset at runtime.
+
+        Args:
+            preset: Preset name ("default", "rust_primary", etc.)
+        """
+        fw_config = PipelineFrameworkConfig.from_preset(preset)
+        self._framework_selector.reconfigure(fw_config)
+        self._log_framework_selection()
+
+    def get_selected_framework(self, task: TaskType) -> Framework:
+        """Get selected framework for a specific task.
+
+        Args:
+            task: Task type to query
+
+        Returns:
+            Selected Framework
+        """
+        return self._framework_selector.select(task)

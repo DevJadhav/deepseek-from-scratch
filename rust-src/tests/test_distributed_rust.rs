@@ -5,7 +5,7 @@
 use candle_core::{Device, Tensor};
 use std::time::Duration;
 
-use deepseek_from_scratch_in_rust::distributed::{
+use deepseek_rust::distributed::{
     expert::{ExpertParallelConfig, ExpertParallelDispatch, LoadBalancer},
     pipeline::DualPipeConfig,
     ring_attention::{

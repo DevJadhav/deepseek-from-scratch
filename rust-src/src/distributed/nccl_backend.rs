@@ -3,11 +3,13 @@
 //! Provides GPU-accelerated collective operations using NVIDIA's NCCL library.
 //! Falls back to simulation when CUDA is not available.
 
+#[allow(unused_imports)]
 use candle_core::{DType, Device, Result, Tensor};
 #[cfg(feature = "cuda")]
 use candle_core::cuda_backend::cudarc::driver::DevicePtr;
 use std::sync::Arc;
 use super::CollectiveCommunicator;
+#[allow(unused_imports)]
 use super::nccl_sys::{
     NcclComm, NcclDataType, NcclRedOp, NcclResult, NcclUniqueId,
     CudaStream, check_nccl_result,

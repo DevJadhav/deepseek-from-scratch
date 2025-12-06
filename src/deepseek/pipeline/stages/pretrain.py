@@ -1,29 +1,106 @@
-"""Pre-training stage orchestrated via Ray runners."""
+"""Pre-training stage orchestrated via Ray runners with framework selection.
+
+This stage implements pre-training with automatic framework selection based on
+hardware capabilities and preferences.
+
+Framework Selection Strategy (default):
+- Training: PyTorch+CUDA → Rust+CUDA → PyTorch+MPS → MLX → CPU
+
+Can be configured via:
+1. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
+2. PipelineConfig.framework_preset
+3. Direct FrameworkSelector injection
+"""
 
 from __future__ import annotations
 
-from typing import Optional
+import logging
+from typing import TYPE_CHECKING
 
 from deepseek.pipeline.config import Backend, Stage
+from deepseek.pipeline.framework_selector import (
+    Framework,
+    FrameworkSelector,
+    PipelineFrameworkConfig,
+    TaskType,
+)
 from deepseek.pipeline.runners import MLXRunner, ModalRunner, PyTorchRunner, RustRunner
 from deepseek.pipeline.stages.base import BaseStage, StageContext
 
+if TYPE_CHECKING:
+    from deepseek.pipeline.runners.base import BaseRunner
+
+LOGGER = logging.getLogger(__name__)
+
 
 class PretrainStage(BaseStage):
+    """Pre-training stage with framework selection.
+
+    Supports automatic framework selection with fallback chain for
+    forward pass, backward pass, and optimizer steps.
+
+    Configuration Options:
+    - framework_selector: Injected FrameworkSelector instance
+    - framework_preset: String preset ("default", "rust_primary", etc.)
+    - fallback_enabled: Whether to enable automatic fallback (default: True)
+    """
+
     stage_name = Stage.PRETRAIN.value
 
+    def __init__(
+        self,
+        config,
+        framework_selector: FrameworkSelector | None = None,
+        framework_preset: str | None = None,
+    ):
+        """Initialize Pretrain stage.
+
+        Args:
+            config: Pipeline configuration
+            framework_selector: Optional pre-configured selector
+            framework_preset: Optional preset name for framework config
+        """
+        super().__init__(config)
+
+        # Initialize framework selector
+        if framework_selector is not None:
+            self._framework_selector = framework_selector
+        elif framework_preset:
+            fw_config = PipelineFrameworkConfig.from_preset(framework_preset)
+            self._framework_selector = FrameworkSelector(fw_config)
+        else:
+            # Use default configuration
+            self._framework_selector = FrameworkSelector()
+
+        self._log_framework_selection()
+
+    def _log_framework_selection(self) -> None:
+        """Log selected frameworks for training tasks."""
+        forward_fw = self._framework_selector.select(TaskType.FORWARD_PASS)
+        backward_fw = self._framework_selector.select(TaskType.BACKWARD_PASS)
+        opt_fw = self._framework_selector.select(TaskType.OPTIMIZER_STEP)
+
+        LOGGER.info(
+            "Pretrain framework selection: forward=%s, backward=%s, optimizer=%s",
+            forward_fw.value,
+            backward_fw.value,
+            opt_fw.value,
+        )
+
     def run(self, context: StageContext) -> StageContext:
+        """Execute pre-training with framework selection."""
         dataset_uri = context.metadata.get("dataset_path")
-        
+
         # Fall back to data_dir from config if no dataset_path in metadata
         if not dataset_uri:
             data_dir = self.config.data.data_dir
             if data_dir:
                 import os
+
                 # Check for stories/train structure (TinyStories dataset)
                 stories_train_dir = os.path.join(data_dir, "stories", "train")
                 train_dir = os.path.join(data_dir, "train")
-                
+
                 if os.path.exists(stories_train_dir):
                     dataset_uri = stories_train_dir
                     self.logger.info("Using stories/train from data_dir: %s", dataset_uri)
@@ -33,7 +110,7 @@ class PretrainStage(BaseStage):
                 elif os.path.exists(data_dir):
                     dataset_uri = data_dir
                     self.logger.info("Using data_dir from config: %s", dataset_uri)
-        
+
         if not dataset_uri:
             raise RuntimeError(
                 "PretrainStage requires dataset_path in context metadata or data_dir in config. "
@@ -42,21 +119,54 @@ class PretrainStage(BaseStage):
 
         pad_token_id = context.metadata.get("pad_token_id", 0)
 
-        backend = self.config.detect_backend()
-        runner = self._select_runner(backend)
+        # Select framework for forward pass (all training ops use same framework)
+        training_framework = self._framework_selector.select(TaskType.FORWARD_PASS)
+        runner = self._get_runner_for_framework(training_framework)
 
         result = runner.run(
             dataset_uri=dataset_uri,
             pad_token_id=pad_token_id,
-            extra_config={"stage": self.stage_name},
+            extra_config={
+                "stage": self.stage_name,
+                "framework": training_framework.value,
+            },
         )
 
         context.previous_output = result.checkpoint_path
         context.metadata["pretrain_checkpoint"] = result.checkpoint_path
         context.metadata["pretrain_metrics"] = result.metrics
+        context.metadata["pretrain_framework"] = training_framework.value
         return context
 
-    def _select_runner(self, backend: Backend):
+    def _get_runner_for_framework(self, framework: Framework) -> BaseRunner:
+        """Get appropriate runner for the selected framework.
+
+        Args:
+            framework: Selected framework
+
+        Returns:
+            Runner instance for the framework
+        """
+        if framework.is_pytorch():
+            return PyTorchRunner(self.config, stage=self.stage_name)
+        if framework == Framework.MLX:
+            return MLXRunner(self.config, stage=self.stage_name)
+        if framework.is_rust():
+            return RustRunner(self.config, stage=self.stage_name)
+
+        # Fallback to PyTorch CPU
+        LOGGER.warning("No specific runner for %s, falling back to PyTorch", framework.value)
+        return PyTorchRunner(self.config, stage=self.stage_name)
+
+    def _select_runner(self, backend: Backend) -> BaseRunner:
+        """Legacy method for backward compatibility.
+
+        Args:
+            backend: Backend enum (deprecated)
+
+        Returns:
+            Runner instance
+        """
         if backend in {Backend.PYTORCH_CUDA, Backend.PYTORCH_MPS, Backend.PYTORCH_CPU}:
             return PyTorchRunner(self.config, stage=self.stage_name)
         if backend == Backend.MLX:
@@ -66,3 +176,21 @@ class PretrainStage(BaseStage):
         if backend == Backend.MODAL_GPU:
             return ModalRunner(self.config, stage=self.stage_name)
         raise NotImplementedError(f"Unsupported backend: {backend.value}")
+
+    def get_framework_selector(self) -> FrameworkSelector:
+        """Get the framework selector for inspection or modification.
+
+        Returns:
+            Current FrameworkSelector instance
+        """
+        return self._framework_selector
+
+    def set_framework_preset(self, preset: str) -> None:
+        """Change framework preset at runtime.
+
+        Args:
+            preset: Preset name ("default", "rust_primary", etc.)
+        """
+        fw_config = PipelineFrameworkConfig.from_preset(preset)
+        self._framework_selector.reconfigure(fw_config)
+        self._log_framework_selection()

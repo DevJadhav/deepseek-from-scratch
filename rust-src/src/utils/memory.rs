@@ -17,9 +17,7 @@
 //! let stats = profiler.get_stats();
 //! ```
 
-use candle_core::{Device, Result};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use candle_core::Device;
 use std::time::{Duration, Instant};
 
 /// Memory statistics container

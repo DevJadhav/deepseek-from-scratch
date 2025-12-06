@@ -21,8 +21,48 @@ from .config import (  # noqa: E402  (import after path adjustment)
     DistributedConfig,
     ModelSize,
     Backend,
+    ResourceRequirements,
+    WaveConfig,
 )
 from .stages.base import StageContext
+from .heterogeneous import (  # noqa: E402
+    NodeArchitecture,
+    DetectedResources,
+    detect_resources,
+    init_ray_with_resources,
+    create_pipeline_parallel_placement_group,
+    create_heterogeneous_placement_group,
+    ClusterHealthMonitor,
+)
+from .data_ingestion import (  # noqa: E402
+    ShuffleState,
+    StreamingConfig,
+    TokenBatcherConfig,
+    DynamicPaddingConfig,
+    DataIngestionConfig,
+    DeterministicShuffler,
+    StreamingDataPipeline,
+    TokenLevelBatcher,
+    DynamicPadder,
+    DataIngestionPipeline,
+)
+from .training_loop import (  # noqa: E402
+    # Expert Placement (Phase 2)
+    HardwareTarget,
+    ExpertLoadStats,
+    ExpertLoadHistory,
+    ExpertPlacementConfig,
+    ExpertPlacementState,
+    HeterogeneousExpertPlacement,
+    # Checkpoint Interop (Phase 2)
+    CheckpointFormat,
+    CheckpointInteropConfig,
+    CheckpointMetadata,
+    TensorMetadata,
+    CheckpointInterop,
+    CANDLE_TO_PYTORCH_NAME_MAP,
+    PYTORCH_TO_CANDLE_NAME_MAP,
+)
 
 __all__ = [
     "PipelineConfig",
@@ -32,5 +72,41 @@ __all__ = [
     "DistributedConfig",
     "ModelSize",
     "Backend",
+    "ResourceRequirements",
+    "WaveConfig",
     "StageContext",
+    # Heterogeneous scheduling
+    "NodeArchitecture",
+    "DetectedResources",
+    "detect_resources",
+    "init_ray_with_resources",
+    "create_pipeline_parallel_placement_group",
+    "create_heterogeneous_placement_group",
+    "ClusterHealthMonitor",
+    # Data Ingestion (Phase 1)
+    "ShuffleState",
+    "StreamingConfig",
+    "TokenBatcherConfig",
+    "DynamicPaddingConfig",
+    "DataIngestionConfig",
+    "DeterministicShuffler",
+    "StreamingDataPipeline",
+    "TokenLevelBatcher",
+    "DynamicPadder",
+    "DataIngestionPipeline",
+    # Expert Placement (Phase 2)
+    "HardwareTarget",
+    "ExpertLoadStats",
+    "ExpertLoadHistory",
+    "ExpertPlacementConfig",
+    "ExpertPlacementState",
+    "HeterogeneousExpertPlacement",
+    # Checkpoint Interop (Phase 2)
+    "CheckpointFormat",
+    "CheckpointInteropConfig",
+    "CheckpointMetadata",
+    "TensorMetadata",
+    "CheckpointInterop",
+    "CANDLE_TO_PYTORCH_NAME_MAP",
+    "PYTORCH_TO_CANDLE_NAME_MAP",
 ]

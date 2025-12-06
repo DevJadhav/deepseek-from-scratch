@@ -7,13 +7,13 @@
 //! - Full training pipeline validation
 //! - Agent trajectory processing
 
-use deepseek_from_scratch_in_rust::model::moe::{DeepSeekMoEV3, DeepSeekMoEV3Config};
-use deepseek_from_scratch_in_rust::model::mla::{
+use deepseek_rust::model::moe::{DeepSeekMoEV3, DeepSeekMoEV3Config};
+use deepseek_rust::model::mla::{
     ExtendedRotaryPositionalEncoding, RoPEConfig, RoPEScalingType,
 };
-use deepseek_from_scratch_in_rust::model::sparse_attention::{DeepSeekSparseAttention, DSAConfig};
-use deepseek_from_scratch_in_rust::model::kv_cache::KVCache;
-use deepseek_from_scratch_in_rust::training::agent::{
+use deepseek_rust::model::sparse_attention::{DeepSeekSparseAttention, DSAConfig};
+use deepseek_rust::model::kv_cache::KVCache;
+use deepseek_rust::training::agent::{
     ToolType, ToolStatus, ToolCall, ToolResponse, AgentTurn, AgentTrajectory, TaskTier,
     RewardWeights, RewardBreakdown,
 };

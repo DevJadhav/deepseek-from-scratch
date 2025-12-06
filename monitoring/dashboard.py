@@ -436,3 +436,240 @@ def create_dashboard(
         Configured TrainingDashboard instance
     """
     return TrainingDashboard(cost_tracker=cost_tracker, title=title)
+
+
+# ============================================================================
+# Section 4.3 Paper Experiments: Enhanced Dashboard
+# ============================================================================
+
+
+class PaperExperimentDashboard(TrainingDashboard):
+    """
+    Enhanced dashboard for paper experiments (Section 4.3).
+    
+    Adds visualization for:
+    - Real-time $/token metrics
+    - Energy efficiency tracking
+    - Cluster cost analysis
+    - Ablation experiment results
+    """
+    
+    def __init__(
+        self,
+        cost_tracker: CostTracker | None = None,
+        cost_analyzer: "RealTimeCostAnalyzer | None" = None,
+        refresh_rate: int = 4,
+        title: str = "DeepSeek Paper Experiments",
+    ):
+        """
+        Initialize paper experiment dashboard.
+        
+        Args:
+            cost_tracker: CostTracker instance
+            cost_analyzer: RealTimeCostAnalyzer for $/token metrics
+            refresh_rate: Refresh rate in Hz
+            title: Dashboard title
+        """
+        super().__init__(cost_tracker, refresh_rate, title)
+        self.cost_analyzer = cost_analyzer
+        self._ablation_results: dict[str, dict] = {}
+        self._benchmark_results: dict[str, dict] = {}
+    
+    def update_ablation_result(
+        self,
+        experiment: str,
+        result: dict,
+    ) -> None:
+        """Update ablation experiment result."""
+        self._ablation_results[experiment] = {
+            "result": result,
+            "timestamp": datetime.now(),
+        }
+    
+    def update_benchmark_result(
+        self,
+        benchmark: str,
+        result: dict,
+    ) -> None:
+        """Update benchmark result."""
+        self._benchmark_results[benchmark] = {
+            "result": result,
+            "timestamp": datetime.now(),
+        }
+    
+    def _render(self) -> Panel:
+        """Render the enhanced dashboard."""
+        layout = Layout()
+        
+        # Create main sections
+        layout.split_column(
+            Layout(name="header", size=3),
+            Layout(name="body"),
+            Layout(name="paper_metrics", size=12),
+            Layout(name="footer", size=3),
+        )
+        
+        # Header
+        header_text = Text(self.title, style="bold cyan", justify="center")
+        layout["header"].update(Panel(header_text, style="bold"))
+        
+        # Body - split into left and right
+        layout["body"].split_row(
+            Layout(name="left"),
+            Layout(name="right"),
+        )
+        
+        # Left side - Training Metrics
+        layout["left"].update(self._render_training_panel())
+        
+        # Right side - Cost Panel
+        layout["right"].update(self._render_cost_panel())
+        
+        # Paper metrics section
+        layout["paper_metrics"].split_row(
+            Layout(name="token_metrics"),
+            Layout(name="energy_metrics"),
+            Layout(name="ablation_results"),
+        )
+        
+        layout["paper_metrics"]["token_metrics"].update(self._render_token_metrics_panel())
+        layout["paper_metrics"]["energy_metrics"].update(self._render_energy_metrics_panel())
+        layout["paper_metrics"]["ablation_results"].update(self._render_ablation_panel())
+        
+        # Footer - Progress bar
+        if self._progress:
+            layout["footer"].update(Panel(self._progress))
+        else:
+            layout["footer"].update(Panel(Text("Not started", justify="center", style="dim")))
+        
+        return Panel(layout, title="[bold]Paper Experiment Dashboard[/bold]", border_style="blue")
+    
+    def _render_token_metrics_panel(self) -> Panel:
+        """Render $/token metrics panel (Figure 1 data)."""
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        
+        if self.cost_analyzer:
+            metrics = self.cost_analyzer.get_current_metrics()
+            
+            table.add_row("Total Tokens", f"{metrics.total_tokens:,}")
+            table.add_row("Tokens/sec", f"{metrics.tokens_per_second:,.1f}")
+            table.add_row("$/token", f"${metrics.cost_per_token:.8f}")
+            table.add_row("$/M tokens", f"${metrics.cost_per_million_tokens:.4f}")
+            table.add_row("J/token", f"{metrics.energy_per_token_joules:.4f}")
+        else:
+            table.add_row("Status", "No analyzer configured")
+        
+        return Panel(table, title="[bold]$/Token (Fig 1)[/bold]", border_style="magenta")
+    
+    def _render_energy_metrics_panel(self) -> Panel:
+        """Render energy metrics panel."""
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        
+        if self.cost_analyzer:
+            energy = self.cost_analyzer.get_energy_metrics()
+            
+            table.add_row("Total Energy", f"{energy.total_energy_kwh:.4f} kWh")
+            table.add_row("Avg Power", f"{energy.avg_power_watts:.1f} W")
+            table.add_row("Peak Power", f"{energy.peak_power_watts:.1f} W")
+            table.add_row("Tokens/Joule", f"{energy.energy_efficiency_tokens_per_joule:.2f}")
+            
+            # Cluster metrics
+            cluster = self.cost_analyzer.get_cluster_metrics()
+            if cluster.total_hourly_cost > 0:
+                table.add_row("", "")  # Spacer
+                table.add_row("[bold]Cluster[/bold]", "")
+                table.add_row("$/hour", f"${cluster.total_hourly_cost:.2f}")
+                table.add_row("Tokens/$", f"{cluster.tokens_per_dollar:,.0f}")
+        else:
+            table.add_row("Status", "No analyzer configured")
+        
+        return Panel(table, title="[bold]Energy (A4)[/bold]", border_style="cyan")
+    
+    def _render_ablation_panel(self) -> Panel:
+        """Render ablation experiment results panel."""
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Experiment", style="cyan")
+        table.add_column("Result", style="green")
+        
+        if self._ablation_results:
+            for exp_name, data in list(self._ablation_results.items())[-5:]:
+                result = data.get("result", {})
+                if isinstance(result, dict):
+                    value = result.get("speedup", result.get("value", "done"))
+                    if isinstance(value, float):
+                        value = f"{value:.2f}x"
+                else:
+                    value = str(result)
+                table.add_row(exp_name[:12], str(value))
+        else:
+            table.add_row("A1", "pending")
+            table.add_row("A2", "pending")
+            table.add_row("A3", "pending")
+            table.add_row("A4", "pending")
+            table.add_row("A5", "pending")
+            table.add_row("A6", "pending")
+        
+        return Panel(table, title="[bold]Ablations (A1-A6)[/bold]", border_style="yellow")
+    
+    def print_paper_summary(self) -> None:
+        """Print paper experiment summary."""
+        self.console.print("\n")
+        self.console.rule("[bold blue]Paper Experiment Summary (Section 4.3)[/bold blue]")
+        
+        # Token metrics table
+        if self.cost_analyzer:
+            token_table = Table(title="Token Cost Analysis")
+            token_table.add_column("Metric", style="cyan")
+            token_table.add_column("Value", style="green")
+            
+            metrics = self.cost_analyzer.get_current_metrics()
+            token_table.add_row("Total Tokens Processed", f"{metrics.total_tokens:,}")
+            token_table.add_row("Cost per Million Tokens", f"${metrics.cost_per_million_tokens:.4f}")
+            token_table.add_row("Energy per Token", f"{metrics.energy_per_token_joules:.4f} J")
+            
+            self.console.print(token_table)
+        
+        # Ablation results table
+        if self._ablation_results:
+            self.console.print("\n")
+            ablation_table = Table(title="Ablation Study Results (A1-A6)")
+            ablation_table.add_column("Experiment", style="cyan")
+            ablation_table.add_column("Status", style="green")
+            ablation_table.add_column("Key Result", style="yellow")
+            
+            for exp_name, data in self._ablation_results.items():
+                result = data.get("result", {})
+                status = "✅ Complete"
+                key_result = str(result.get("summary", result.get("speedup", "N/A")))
+                ablation_table.add_row(exp_name, status, key_result[:30])
+            
+            self.console.print(ablation_table)
+        
+        # Benchmark results table
+        if self._benchmark_results:
+            self.console.print("\n")
+            bench_table = Table(title="Benchmark Results (Figures 1-4)")
+            bench_table.add_column("Benchmark", style="cyan")
+            bench_table.add_column("Result", style="green")
+            
+            for bench_name, data in self._benchmark_results.items():
+                result = data.get("result", {})
+                value = str(result.get("value", result.get("throughput", "N/A")))
+                bench_table.add_row(bench_name, value[:40])
+            
+            self.console.print(bench_table)
+        
+        # Call parent summary
+        self.print_summary()
+
+
+# Import for type hints
+try:
+    from monitoring.cost_tracker import RealTimeCostAnalyzer
+except ImportError:
+    pass
+

@@ -1,4 +1,4 @@
-use candle_core::{Device, DType, Result, Tensor};
+use candle_core::{Device, Result, Tensor};
 use candle_nn::{Linear, Module, VarBuilder, ops};
 
 /// Configuration for attention computation backend
@@ -69,14 +69,14 @@ pub fn chunked_attention(
     chunk_size: usize,
     is_causal: bool,
 ) -> Result<Tensor> {
-    let (batch_size, num_heads, seq_len, d_head) = q.dims4()?;
+    let (_batch_size, _num_heads, seq_len, d_head) = q.dims4()?;
     let scale = 1.0 / (d_head as f64).sqrt();
     
     if seq_len <= chunk_size {
         return standard_attention(q, k, v, is_causal);
     }
     
-    let num_chunks = (seq_len + chunk_size - 1) / chunk_size;
+    let num_chunks = seq_len.div_ceil(chunk_size);
     let mut outputs = Vec::with_capacity(num_chunks);
     
     for i in 0..num_chunks {
