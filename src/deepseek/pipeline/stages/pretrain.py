@@ -3,12 +3,14 @@
 This stage implements pre-training with automatic framework selection based on
 hardware capabilities and preferences.
 
-Framework Selection Strategy (default):
-- Training: PyTorch+CUDA → Rust+CUDA → PyTorch+MPS → MLX → CPU
+Framework Selection Strategy:
+- When backend=pytorch_*: PyTorch CUDA → MPS → CPU (NO Rust fallback)
+- When backend=rust: Rust CUDA → Metal → CPU (NO PyTorch fallback)
+- When backend=mlx: MLX → PyTorch MPS → CPU
 
 Can be configured via:
-1. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
-2. PipelineConfig.framework_preset
+1. PipelineConfig.backend (controls fallback chain)
+2. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
 3. Direct FrameworkSelector injection
 """
 
@@ -36,13 +38,13 @@ LOGGER = logging.getLogger(__name__)
 class PretrainStage(BaseStage):
     """Pre-training stage with framework selection.
 
-    Supports automatic framework selection with fallback chain for
-    forward pass, backward pass, and optimizer steps.
+    Supports automatic framework selection with fallback chain that
+    respects the configured backend (no cross-backend fallback).
 
     Configuration Options:
+    - config.backend: Controls which backend family to use (pytorch_*, rust, mlx)
     - framework_selector: Injected FrameworkSelector instance
-    - framework_preset: String preset ("default", "rust_primary", etc.)
-    - fallback_enabled: Whether to enable automatic fallback (default: True)
+    - framework_preset: String preset ("default", "rust_only", "pytorch_only")
     """
 
     stage_name = Stage.PRETRAIN.value
@@ -62,15 +64,14 @@ class PretrainStage(BaseStage):
         """
         super().__init__(config)
 
-        # Initialize framework selector
+        # Initialize framework selector - respect backend from config
         if framework_selector is not None:
             self._framework_selector = framework_selector
-        elif framework_preset:
-            fw_config = PipelineFrameworkConfig.from_preset(framework_preset)
-            self._framework_selector = FrameworkSelector(fw_config)
         else:
-            # Use default configuration
-            self._framework_selector = FrameworkSelector()
+            # Use preset from argument, or derive from backend config
+            preset = framework_preset or self.get_framework_preset()
+            fw_config = PipelineFrameworkConfig.from_preset(preset)
+            self._framework_selector = FrameworkSelector(fw_config)
 
         self._log_framework_selection()
 

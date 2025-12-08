@@ -281,6 +281,64 @@ class FrameworkPreference:
         return [self.primary, *self.fallbacks]
 
     @classmethod
+    def pytorch_only(cls, name: str = "pytorch_only") -> FrameworkPreference:
+        """PyTorch-only preference chain (NO cross-backend fallback).
+        
+        Fallback: CUDA → MPS → CPU (all within PyTorch)
+        """
+        return cls(
+            primary=Framework.PYTORCH_CUDA,
+            fallbacks=[
+                Framework.PYTORCH_MPS,
+                Framework.PYTORCH_CPU,
+            ],
+            name=name,
+        )
+
+    @classmethod
+    def pytorch_mps_primary(cls, name: str = "pytorch_mps") -> FrameworkPreference:
+        """PyTorch MPS-primary preference chain (NO cross-backend fallback).
+        
+        Fallback: MPS → CPU (all within PyTorch)
+        """
+        return cls(
+            primary=Framework.PYTORCH_MPS,
+            fallbacks=[
+                Framework.PYTORCH_CPU,
+            ],
+            name=name,
+        )
+
+    @classmethod
+    def rust_only(cls, name: str = "rust_only") -> FrameworkPreference:
+        """Rust-only preference chain (NO cross-backend fallback).
+        
+        Fallback: CUDA → Metal → CPU (all within Rust)
+        """
+        return cls(
+            primary=Framework.RUST_CUDA,
+            fallbacks=[
+                Framework.RUST_METAL,
+                Framework.RUST_CPU,
+            ],
+            name=name,
+        )
+
+    @classmethod
+    def rust_metal_only(cls, name: str = "rust_metal_only") -> FrameworkPreference:
+        """Rust Metal-primary preference chain (NO cross-backend fallback).
+        
+        Fallback: Metal → CPU (all within Rust)
+        """
+        return cls(
+            primary=Framework.RUST_METAL,
+            fallbacks=[
+                Framework.RUST_CPU,
+            ],
+            name=name,
+        )
+
+    @classmethod
     def apple_silicon_optimized(cls, name: str = "apple_silicon") -> FrameworkPreference:
         """Preference chain for Apple Silicon tasks.
 
@@ -452,37 +510,82 @@ class PipelineFrameworkConfig:
         return mapping.get(task_type, FrameworkPreference.gpu_training(task_type.value))
 
     def set_all_to_rust_primary(self) -> None:
-        """Set all GPU tasks to use Rust as primary framework."""
-        # Training tasks use Rust+CUDA/Metal
-        self.forward_pass = FrameworkPreference.rust_gpu_primary("forward_pass")
-        self.backward_pass = FrameworkPreference.rust_gpu_primary("backward_pass")
-        self.optimizer_step = FrameworkPreference.rust_gpu_primary("optimizer_step")
-        self.expert_routing = FrameworkPreference.rust_gpu_primary("expert_routing")
-        self.attention_compute = FrameworkPreference.rust_gpu_primary("attention_compute")
+        """Set all GPU tasks to use Rust as primary framework (NO cross-backend fallback)."""
+        # Training tasks use Rust-only fallback chain
+        rust_only = FrameworkPreference.rust_only()
+        rust_metal_only = FrameworkPreference.rust_metal_only()
+        
+        self.forward_pass = rust_only
+        self.backward_pass = rust_only
+        self.optimizer_step = rust_only
+        self.expert_routing = rust_only
+        self.attention_compute = rust_only
 
-        # GRPO generation uses Rust+Metal
-        self.generation = FrameworkPreference.rust_metal_primary("generation")
-        self.rollout = FrameworkPreference.rust_metal_primary("rollout")
-        self.reference_model = FrameworkPreference.rust_metal_primary("reference_model")
+        # GRPO generation uses Rust+Metal only
+        self.generation = rust_metal_only
+        self.rollout = rust_metal_only
+        self.reference_model = rust_metal_only
 
-        # Policy update uses Rust+CUDA
-        self.policy_update = FrameworkPreference.rust_gpu_primary("policy_update")
-        self.kl_computation = FrameworkPreference.rust_gpu_primary("kl_computation")
-        self.reward_computation = FrameworkPreference.rust_gpu_primary("reward_computation")
+        # Policy update uses Rust only
+        self.policy_update = rust_only
+        self.kl_computation = rust_only
+        self.reward_computation = rust_only
+        
+        # Data processing stays Rust
+        self.data_loading = FrameworkPreference(
+            primary=Framework.RUST_CPU, 
+            fallbacks=[Framework.PYTHON_CPU],
+            name="data_loading_rust"
+        )
+        self.tokenization = FrameworkPreference(
+            primary=Framework.RUST_CPU,
+            fallbacks=[Framework.PYTHON_CPU],
+            name="tokenization_rust"
+        )
+        self.checkpointing = FrameworkPreference(
+            primary=Framework.RUST_CPU,
+            fallbacks=[Framework.PYTHON_CPU],
+            name="checkpointing_rust"
+        )
+        self.export = FrameworkPreference(
+            primary=Framework.RUST_CPU,
+            fallbacks=[Framework.PYTHON_CPU],
+            name="export_rust"
+        )
 
     def set_all_to_pytorch_primary(self) -> None:
-        """Set all tasks to use PyTorch as primary framework."""
-        # Training tasks
-        self.forward_pass = FrameworkPreference.gpu_training("forward_pass")
-        self.backward_pass = FrameworkPreference.gpu_training("backward_pass")
-        self.optimizer_step = FrameworkPreference.gpu_training("optimizer_step")
-        self.expert_routing = FrameworkPreference.gpu_training("expert_routing")
-        self.attention_compute = FrameworkPreference.gpu_training("attention_compute")
+        """Set all tasks to use PyTorch as primary framework (NO cross-backend fallback)."""
+        # Training tasks use PyTorch-only fallback chain
+        pytorch_only = FrameworkPreference.pytorch_only()
+        pytorch_mps = FrameworkPreference.pytorch_mps_primary()
+        
+        self.forward_pass = pytorch_only
+        self.backward_pass = pytorch_only
+        self.optimizer_step = pytorch_only
+        self.expert_routing = pytorch_only
+        self.attention_compute = pytorch_only
 
-        # GRPO tasks
-        self.generation = FrameworkPreference.apple_silicon_optimized("generation")
-        self.rollout = FrameworkPreference.apple_silicon_optimized("rollout")
-        self.policy_update = FrameworkPreference.gpu_training("policy_update")
+        # GRPO tasks use PyTorch MPS primary (for Apple Silicon)
+        self.generation = pytorch_mps
+        self.rollout = pytorch_mps
+        self.reference_model = pytorch_mps
+        self.policy_update = pytorch_only
+        self.kl_computation = pytorch_only
+        self.reward_computation = pytorch_only
+        
+        # Inference uses PyTorch MPS
+        self.inference = pytorch_mps
+        
+        # Data processing uses Python/PyTorch CPU
+        python_cpu = FrameworkPreference(
+            primary=Framework.PYTORCH_CPU,
+            fallbacks=[Framework.PYTHON_CPU],
+            name="data_pytorch"
+        )
+        self.data_loading = python_cpu
+        self.tokenization = python_cpu
+        self.checkpointing = python_cpu
+        self.export = python_cpu
 
     @classmethod
     def from_preset(cls, preset: str) -> PipelineFrameworkConfig:
@@ -490,16 +593,18 @@ class PipelineFrameworkConfig:
 
         Presets:
         - "default": Standard configuration (PyTorch+CUDA training, MLX generation)
-        - "rust_primary": Rust as primary for all tasks
-        - "pytorch_only": PyTorch for everything
+        - "rust_primary": Rust as primary for all tasks (NO cross-backend fallback)
+        - "rust_only": Rust-only, no PyTorch fallback 
+        - "pytorch_only": PyTorch for everything (NO cross-backend fallback)
+        - "pytorch_mps": PyTorch MPS primary (for Apple Silicon, NO cross-backend fallback)
         - "apple_silicon": Optimized for Apple Silicon machines
         - "heterogeneous": Mixed MLX generation + PyTorch training
         """
         config = cls()
 
-        if preset == "rust_primary":
+        if preset in ("rust_primary", "rust_only"):
             config.set_all_to_rust_primary()
-        elif preset == "pytorch_only":
+        elif preset in ("pytorch_only", "pytorch_mps"):
             config.set_all_to_pytorch_primary()
         elif preset == "apple_silicon":
             # Everything on Apple Silicon

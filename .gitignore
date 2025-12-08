@@ -193,7 +193,7 @@ temp/
 *.swp
 *.swo
 *~
-library_transformation.md
+
 
 # ------------------------------------------------------------------------------
 # Documentation Build

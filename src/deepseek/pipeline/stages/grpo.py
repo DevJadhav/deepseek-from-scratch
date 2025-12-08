@@ -3,13 +3,14 @@
 This stage implements Group Relative Policy Optimization (GRPO) for alignment
 with automatic framework selection based on hardware capabilities and preferences.
 
-Framework Selection Strategy (default):
-- Generation/Rollout: MLX → Rust+Metal → PyTorch+MPS → CPU
-- Policy Update/KL: PyTorch+CUDA → Rust+CUDA → MLX → CPU
+Framework Selection Strategy:
+- When backend=pytorch_*: PyTorch CUDA → MPS → CPU (NO Rust fallback)
+- When backend=rust: Rust CUDA → Metal → CPU (NO PyTorch fallback)
+- When backend=mlx: MLX → PyTorch MPS → CPU
 
 Can be configured via:
-1. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
-2. PipelineConfig.framework_preset
+1. PipelineConfig.backend (controls fallback chain)
+2. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
 3. Direct FrameworkSelector injection
 """
 
@@ -38,14 +39,13 @@ LOGGER = logging.getLogger(__name__)
 class GRPOStage(BaseStage):
     """GRPO alignment stage with framework selection.
 
-    Supports heterogeneous execution where generation happens on one
-    framework (e.g., MLX on Apple Silicon) and training on another
-    (e.g., PyTorch+CUDA).
+    Supports automatic framework selection with fallback chain that
+    respects the configured backend (no cross-backend fallback).
 
     Configuration Options:
+    - config.backend: Controls which backend family to use (pytorch_*, rust, mlx)
     - framework_selector: Injected FrameworkSelector instance
-    - framework_preset: String preset ("default", "rust_primary", etc.)
-    - fallback_enabled: Whether to enable automatic fallback (default: True)
+    - framework_preset: String preset ("default", "rust_only", "pytorch_only")
     """
 
     stage_name = Stage.GRPO.value
@@ -65,15 +65,14 @@ class GRPOStage(BaseStage):
         """
         super().__init__(config)
 
-        # Initialize framework selector
+        # Initialize framework selector - respect backend from config
         if framework_selector is not None:
             self._framework_selector = framework_selector
-        elif framework_preset:
-            fw_config = PipelineFrameworkConfig.from_preset(framework_preset)
-            self._framework_selector = FrameworkSelector(fw_config)
         else:
-            # Use default heterogeneous configuration
-            self._framework_selector = FrameworkSelector()
+            # Use preset from argument, or derive from backend config
+            preset = framework_preset or self.get_framework_preset()
+            fw_config = PipelineFrameworkConfig.from_preset(preset)
+            self._framework_selector = FrameworkSelector(fw_config)
 
         self._log_framework_selection()
 

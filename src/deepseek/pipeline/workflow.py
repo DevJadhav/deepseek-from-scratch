@@ -146,9 +146,13 @@ class DeepSeekWorkflow:
     def _run_distributed(self, metadata: dict) -> StageContext:
         """Run pipeline stages as Ray tasks."""
         if not ray.is_initialized():
+            import sys
             ray.init(
                 address=self.config.distributed.ray_address or None,
                 ignore_reinit_error=True,
+                runtime_env={
+                    "env_vars": {"PYTHONPATH": ":".join(sys.path)},
+                },
             )
         
         config_dict = self.config.to_dict()
@@ -233,9 +237,13 @@ class DeepSeekWorkflow:
         
         # Initialize Ray
         if not ray.is_initialized():
+            import sys
             ray.init(
                 address=self.config.distributed.ray_address or None,
                 ignore_reinit_error=True,
+                runtime_env={
+                    "env_vars": {"PYTHONPATH": ":".join(sys.path)},
+                },
             )
         
         # Set up directories
@@ -450,7 +458,9 @@ class DeepSeekWorkflow:
         import os
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
         
-        runner = PyTorchRunner(self.config)
+        # Use first stage or default to pretrain
+        stage = wave.stages[0] if wave.stages else "pretrain"
+        runner = PyTorchRunner(self.config, stage=stage)
         runner.device = "cpu"
         
         result = runner.run(
@@ -478,7 +488,9 @@ class DeepSeekWorkflow:
         
         self.logger.info("Executing PyTorch+CUDA wave %d with stages: %s", wave.wave_id, wave.stages)
         
-        runner = PyTorchRunner(self.config)
+        # Use first stage or default to pretrain
+        stage = wave.stages[0] if wave.stages else "pretrain"
+        runner = PyTorchRunner(self.config, stage=stage)
         runner.device = "cuda"
         
         result = runner.run(
@@ -506,7 +518,9 @@ class DeepSeekWorkflow:
         
         self.logger.info("Executing PyTorch+MPS wave %d with stages: %s", wave.wave_id, wave.stages)
         
-        runner = PyTorchRunner(self.config)
+        # Use first stage or default to pretrain
+        stage = wave.stages[0] if wave.stages else "pretrain"
+        runner = PyTorchRunner(self.config, stage=stage)
         runner.device = "mps"
         
         result = runner.run(

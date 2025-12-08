@@ -7,13 +7,8 @@ use crate::training::distillation::{kd_loss_kl, kd_loss_mse, kd_loss_jsd};
 /// Run comprehensive benchmarks for Chapter 5-9 components
 pub fn run_benchmark() -> Result<()> {
     println!("\n=== Chapter 5-9: Training & Post-Training Benchmarks ===");
-    let device = if candle_core::utils::metal_is_available() {
-        println!("Using Metal GPU");
-        Device::new_metal(0)?
-    } else {
-        println!("Using CPU");
-        Device::Cpu
-    };
+    let device = crate::utils::device::DeviceSelector::get_device()?;
+    println!("Using device: {}", crate::utils::device::DeviceSelector::device_type_string(&device));
     
     let batch_size = 4;
     let seq_len = 64;

@@ -333,13 +333,8 @@ pub struct PaperExperiments {
 
 impl PaperExperiments {
     pub fn new() -> Result<Self> {
-        let device = if candle_core::utils::metal_is_available() {
-            Device::new_metal(0)?
-        } else if candle_core::utils::cuda_is_available() {
-            Device::new_cuda(0)?
-        } else {
-            Device::Cpu
-        };
+        // Use centralized DeviceSelector with CUDA → Metal → CPU priority
+        let device = crate::utils::device::DeviceSelector::get_device()?;
         
         Ok(Self { device })
     }

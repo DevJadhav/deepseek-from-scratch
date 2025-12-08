@@ -465,35 +465,13 @@ fn run_pretrain(config_path: PathBuf) -> Result<()> {
 }
 
 fn get_device() -> Result<Device> {
-    // CUDA-first device selection for production 3-GPU pipeline
-    if candle_core::utils::cuda_is_available() {
-        info!("Using CUDA GPU");
-        Device::new_cuda(0)
-    } else if candle_core::utils::metal_is_available() {
-        info!("Using Metal GPU (fallback)");
-        Device::new_metal(0)
-    } else {
-        info!("Using CPU (fallback)");
-        Ok(Device::Cpu)
-    }
+    // Use centralized DeviceSelector with CUDA → Metal → CPU priority
+    deepseek_rust::utils::device::DeviceSelector::get_device()
 }
 
 fn run_demo() -> Result<()> {
-    // Original demo code
-
-    // CUDA-first device selection for production 3-GPU pipeline
-    let device = if candle_core::utils::cuda_is_available() {
-        info!("Using CUDA GPU");
-        Device::new_cuda(0)?  // Default to GPU 0, PP stages use CUDA_VISIBLE_DEVICES
-    // TODO: Remove after production - Metal fallback for local dev
-    } else if candle_core::utils::metal_is_available() {
-        info!("Using Metal GPU (fallback)");
-        Device::new_metal(0)?
-    } else {
-        // TODO: Remove after production - CPU fallback
-        println!("Using CPU (fallback)");
-        Device::Cpu
-    };
+    // Use centralized DeviceSelector with CUDA → Metal → CPU priority
+    let device = deepseek_rust::utils::device::DeviceSelector::get_device()?;
     let varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
 

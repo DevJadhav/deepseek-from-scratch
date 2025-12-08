@@ -192,7 +192,7 @@ class DataConfig:
         "codeforces": "open-r1/codeforces",
         "math": "open-r1/OpenThoughts-114k-math",
     })
-    cache_dir: str = "./cache"
+    cache_dir: str = "./data/processed"
     
     # Tokenizer
     tokenizer_name: str = "deepseek-ai/deepseek-llm-7b-base"
@@ -249,7 +249,7 @@ class TrainingConfig:
     amp_dtype: str = "bfloat16"  # float16, bfloat16
     
     # Checkpointing
-    checkpoint_dir: str = "./checkpoints"
+    checkpoint_dir: str = "./data/checkpoints"
     save_every_n_steps: int = 1000  # 1k checkpoint intervals
     keep_last_n_checkpoints: int = 5  # Keep more for wave comparison
     
@@ -311,6 +311,10 @@ class DistillationConfig:
     alpha: float = 0.5  # Weight for KD loss vs CE loss
     loss_type: str = "kl"  # kl, mse, jsd
     
+    # Training params for distillation
+    learning_rate: float = 2e-5
+    num_epochs: int = 3
+    
     # Hidden distillation
     use_hidden_distillation: bool = False
     hidden_weight: float = 0.1
@@ -324,7 +328,7 @@ class DistillationConfig:
 @dataclass
 class ExportConfig:
     """Model export configuration."""
-    output_dir: str = "./exports"
+    output_dir: str = "./data/exports"
     
     # Formats
     export_safetensors: bool = True
@@ -683,7 +687,7 @@ class PipelineConfig:
     wandb_entity: Optional[str] = None
     
     # Paths
-    output_dir: str = "./outputs"
+    output_dir: str = "./data/outputs"
     
     def __post_init__(self):
         """Sync model config with model size."""

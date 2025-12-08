@@ -14,15 +14,12 @@ use candle_core::{DType, Device, Result, Tensor, D, Module};
 use candle_nn::{VarBuilder, VarMap, ops};
 use std::fs;
 
-/// Get the best available device (Metal GPU on macOS, otherwise CPU)
+/// Get the best available device with CUDA → Metal → CPU priority
+///
+/// Uses the centralized DeviceSelector for consistent device selection
+/// across all training modules.
 pub fn get_device() -> Result<Device> {
-    if candle_core::utils::metal_is_available() {
-        println!("Using Metal GPU");
-        Device::new_metal(0)
-    } else {
-        println!("Using CPU");
-        Ok(Device::Cpu)
-    }
+    crate::utils::device::DeviceSelector::get_device()
 }
 
 /// Training configuration

@@ -292,7 +292,7 @@ impl MemoryBudget {
         current_bytes <= (self.max_memory_bytes as f64 * self.memory_fraction) as u64
     }
 
-    /// Suggest batch size based on memory usage
+    /// Suggest batch size based on memory usage (linear adjustment)
     pub fn suggest_batch_size(&self, current_batch: usize, current_memory_bytes: u64) -> usize {
         if !self.auto_adjust_batch {
             return current_batch;
@@ -313,6 +313,66 @@ impl MemoryBudget {
         } else {
             current_batch
         }
+    }
+
+    /// Find optimal batch size using binary search (recommended)
+    ///
+    /// Given the memory required per sample, finds the maximum batch size
+    /// that fits within the memory budget using binary search for faster
+    /// convergence than linear adjustment.
+    ///
+    /// # Arguments
+    /// * `memory_per_sample_bytes` - Memory required per sample in bytes
+    ///
+    /// # Returns
+    /// The optimal batch size within configured bounds
+    pub fn find_optimal_batch_size_binary(&self, memory_per_sample_bytes: u64) -> usize {
+        if !self.auto_adjust_batch {
+            return self.max_batch_size;
+        }
+
+        let budget = (self.max_memory_bytes as f64 * self.memory_fraction) as u64;
+        
+        // Binary search for optimal batch size
+        let mut low = self.min_batch_size;
+        let mut high = self.max_batch_size;
+        let mut best = self.min_batch_size;
+
+        while low <= high {
+            let mid = low + (high - low) / 2;
+            let total_memory = (mid as u64) * memory_per_sample_bytes;
+
+            if total_memory <= budget {
+                best = mid;
+                low = mid + 1;
+            } else {
+                if mid == 0 {
+                    break;
+                }
+                high = mid - 1;
+            }
+        }
+
+        best.max(self.min_batch_size).min(self.max_batch_size)
+    }
+
+    /// Find optimal batch size with a default fallback when auto-adjust is disabled
+    ///
+    /// # Arguments
+    /// * `memory_per_sample_bytes` - Memory required per sample in bytes
+    /// * `default_batch_size` - Batch size to return if auto-adjust is disabled
+    ///
+    /// # Returns
+    /// The optimal batch size or the default if auto-adjust is disabled
+    pub fn find_optimal_batch_size_binary_with_default(
+        &self,
+        memory_per_sample_bytes: u64,
+        default_batch_size: usize,
+    ) -> usize {
+        if !self.auto_adjust_batch {
+            return default_batch_size;
+        }
+        self.find_optimal_batch_size_binary(memory_per_sample_bytes)
     }
 }
 

@@ -5,13 +5,8 @@ use crate::model::quantization::FP8Linear;
 
 pub fn run_benchmark() -> Result<()> {
     println!("\n=== Chapter 4 Bonus: MTP & FP8 Benchmarking ===");
-    let device = if candle_core::utils::metal_is_available() {
-        println!("Using Metal GPU");
-        Device::new_metal(0)?
-    } else {
-        println!("Using CPU");
-        Device::Cpu
-    };
+    let device = crate::utils::device::DeviceSelector::get_device()?;
+    println!("Using device: {}", crate::utils::device::DeviceSelector::device_type_string(&device));
     
     let batch_size = 4;
     let seq_len = 64;

@@ -15,16 +15,20 @@ Can be configured via:
 1. Environment variable: DEEPSEEK_FRAMEWORK_PRESET=rust_primary
 2. PipelineConfig.framework_preset
 3. Direct FrameworkSelector injection
+
+Auto-download:
+- If no data is found, automatically downloads FineWeb-Edu
+- Set DEEPSEEK_AUTO_DOWNLOAD=false to disable
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import ray
 import ray.data as rd
-from ray import worker
 from ray.data.dataset import Dataset
 
 from deepseek.pipeline.config import PipelineConfig
@@ -35,6 +39,7 @@ from deepseek.pipeline.framework_selector import (
     TaskType,
 )
 from deepseek.pipeline.stages.base import BaseStage, StageContext
+from deepseek.pipeline.utils.data_downloader import DataDownloader
 
 # Prefer PyTorch implementation of pipeline utilities (has full feature set)
 from deepseek.torch.training.pipeline import CurriculumScheduler, DataMixer  # type: ignore
@@ -108,7 +113,17 @@ class DataPrepStage(BaseStage):
         """Initializes Ray runtime and tokenizer."""
         if not ray.is_initialized():
             self.logger.info("Initializing Ray runtime for data preparation stage")
-            ray.init(address=self.config.distributed.ray_address or None, ignore_reinit_error=True)
+            # Initialize Ray with proper env configuration for uv compatibility
+            import sys
+            ray.init(
+                address=self.config.distributed.ray_address or None,
+                ignore_reinit_error=True,
+                runtime_env={
+                    "env_vars": {
+                        "PYTHONPATH": ":".join(sys.path),
+                    },
+                },
+            )
 
         tokenizer_name = self.config.data.tokenizer_path or self.config.data.tokenizer_name
         self.logger.info("Loading tokenizer %s", tokenizer_name)
@@ -122,19 +137,48 @@ class DataPrepStage(BaseStage):
         cache_dir = Path(self.config.data.cache_dir) / self.config.run_name / "pretrain"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
+        # Check for auto-download
+        auto_download = os.environ.get("DEEPSEEK_AUTO_DOWNLOAD", "true").lower() != "false"
+        max_samples = int(os.environ.get("DEEPSEEK_DOWNLOAD_SAMPLES", "5000"))
+
         # Load per-domain datasets
         domain_datasets: dict[str, Dataset] = {}
+        missing_domains: list[str] = []
+
         for domain, weight in self.config.data.domain_weights.items():
             if weight <= 0:
                 continue
             ds = self._read_domain_dataset(domain, data_dir)
             if ds is None:
                 self.logger.warning("No data found for domain '%s'", domain)
+                missing_domains.append(domain)
                 continue
             domain_datasets[domain] = ds
 
+        # Auto-download missing domains
+        if missing_domains and auto_download:
+            self.logger.info("Auto-downloading missing domains: %s", missing_domains)
+            downloader = DataDownloader(output_dir=data_dir)
+            downloader.download_all_domains(
+                max_samples_per_domain=max_samples,
+                domains=missing_domains,
+                skip_existing=True,
+            )
+            # Try loading again after download
+            for domain in missing_domains:
+                ds = self._read_domain_dataset(domain, data_dir)
+                if ds is not None:
+                    domain_datasets[domain] = ds
+                    self.logger.info("Loaded domain '%s' after download", domain)
+
         if not domain_datasets:
-            raise RuntimeError("No domain datasets could be loaded. Check data paths.")
+            raise RuntimeError(
+                "No domain datasets could be loaded. "
+                "Set DEEPSEEK_AUTO_DOWNLOAD=true or download data manually. "
+                f"Expected domains: {list(self.config.data.domain_weights.keys())}"
+            )
+
+        self.logger.info("Loaded domains: %s", list(domain_datasets.keys()))
 
         # Mix datasets according to weights
         mixer = DataMixer(self.config.data.domain_weights)
@@ -145,8 +189,8 @@ class DataPrepStage(BaseStage):
             scheduler = CurriculumScheduler(
                 start_seq_len=self.config.data.curriculum_start_seq_len,
                 end_seq_len=self.config.data.curriculum_end_seq_len,
-                warmup_steps=self.config.data.curriculum_warmup_steps,
-                total_steps=self.config.data.curriculum_total_steps,
+                seq_curriculum_steps=self.config.data.curriculum_warmup_steps,
+                difficulty_warmup_steps=self.config.data.curriculum_total_steps,
             )
             target_seq_len = scheduler.get_seq_length(0)
         else:
@@ -162,7 +206,7 @@ class DataPrepStage(BaseStage):
         tokenized = mixed_ds.map_batches(
             lambda batch: self._tokenize_batch(batch, target_seq_len),
             batch_format="pandas",
-            compute=rd.ActorPoolStrategy(num_actors=self.config.data.num_workers),
+            concurrency=self.config.data.num_workers,
         )
 
         num_rows = tokenized.count()
@@ -183,7 +227,8 @@ class DataPrepStage(BaseStage):
         return context
 
     def teardown(self):
-        if ray.is_initialized() and not worker.global_worker.node.should_shutdown():
+        """Clean up resources, keeping Ray active for subsequent stages."""
+        if ray.is_initialized():
             self.logger.info("Ray runtime remains active for subsequent stages")
 
     # ------------------------------------------------------------------
@@ -217,13 +262,15 @@ class DataPrepStage(BaseStage):
             return self._read_file(path)
 
     def _read_file(self, path: Path) -> Dataset | None:
+        # Always use absolute paths for Ray compatibility
+        abs_path = str(path.resolve())
         suffix = path.suffix.lower()
         if suffix in {".jsonl", ".json"}:
-            return ray.data.read_json(str(path))
+            return ray.data.read_json(abs_path)
         if suffix == ".parquet":
-            return ray.data.read_parquet(str(path))
+            return ray.data.read_parquet(abs_path)
         if suffix in {".txt", ".text"}:
-            return ray.data.read_text(str(path)).map(lambda row: {"text": row["text"]})
+            return ray.data.read_text(abs_path).map(lambda row: {"text": row["text"]})
         self.logger.warning("Unsupported file type %s", path)
         return None
 

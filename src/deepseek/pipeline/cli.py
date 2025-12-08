@@ -207,12 +207,16 @@ def run_rust(
 @app.command()
 def run_python(
     config: Optional[Path] = typer.Option(None, "--config", "-c"),
+    data_dir: Optional[Path] = typer.Option(None, "--data-dir", "-d", help="Path to training data directory"),
     gpus: int = typer.Option(3, "--gpus", help="Number of GPUs"),
     pp_size: int = typer.Option(3, "--pp-size", help="Pipeline parallel size"),
     max_steps: int = typer.Option(10000, "--max-steps", help="Maximum training steps"),
     start_step: int = typer.Option(0, "--start-step", help="Starting step"),
     checkpoint_from: Optional[Path] = typer.Option(None, "--checkpoint-from", help="Load checkpoint from path"),
     use_cuda: bool = typer.Option(True, "--cuda/--no-cuda", help="Use CUDA GPU (default: True)"),
+    use_mps: bool = typer.Option(True, "--mps/--no-mps", help="Use MPS (Metal) on macOS if CUDA unavailable"),
+    auto_download: bool = typer.Option(True, "--auto-download/--no-auto-download", help="Auto-download FineWeb-Edu if no data"),
+    verify_only: bool = typer.Option(False, "--verify-only", help="Quick verification run (10 steps, tiny model)"),
 ):
     """
     Run Python/PyTorch backend waves only (Waves 2 & 4).
@@ -220,11 +224,28 @@ def run_python(
     Wave 2: Standard MOE/DeepSeek MOE
     Wave 4: MTP/FP8/Distillation/5D Parallelism
     
+    Device Priority: CUDA → MPS (Metal) → CPU
+    Auto-download: Will download FineWeb-Edu if no data found (use --no-auto-download to disable)
+    
     Example:
+        python -m deepseek.pipeline.cli run-python --verify-only  # Quick verification
         python -m deepseek.pipeline.cli run-python --gpus 3 --pp-size 3 --max-steps 10000 --checkpoint-from checkpoints/step_5000
     """
+    import os
     from deepseek.pipeline.config import WaveBackend, WaveConfig, TimeSlicedConfig
     from deepseek.pipeline.workflow import DeepSeekWorkflow
+    from deepseek.torch.utils.device import get_device, DevicePriority
+    
+    # Quick verification mode
+    if verify_only:
+        max_steps = 10
+        gpus = 1
+        pp_size = 1
+        typer.echo("[VERIFY MODE] Using minimal settings for quick verification")
+    
+    # Set auto-download env var
+    os.environ["DEEPSEEK_AUTO_DOWNLOAD"] = "true" if auto_download else "false"
+    os.environ["DEEPSEEK_DOWNLOAD_SAMPLES"] = "5000" if verify_only else "10000"
     
     cfg = PipelineConfig.production_3gpu_time_sliced()
     cfg.time_sliced.gpu_ids = list(range(gpus))
@@ -232,8 +253,35 @@ def run_python(
     cfg.distributed.num_workers = gpus
     cfg.distributed.pipeline_parallel_size = pp_size
     
-    # Select PyTorch backend based on CUDA availability
-    pytorch_backend = WaveBackend.PYTORCH_CUDA if use_cuda else WaveBackend.PYTORCH_CPU
+    # Set data directory if provided
+    if data_dir:
+        cfg.data.data_dir = str(data_dir)
+        typer.echo(f"Using data directory: {data_dir}")
+    
+    # Determine backend using our device selection logic
+    device = get_device(priority=DevicePriority.CUDA_FIRST)
+    device_type = str(device).split(":")[0]  # Extract 'cuda', 'mps', or 'cpu'
+    
+    if device_type == "cuda" and use_cuda:
+        pytorch_backend = WaveBackend.PYTORCH_CUDA
+        backend_name = "PyTorch+CUDA"
+    elif device_type == "mps" and use_mps:
+        pytorch_backend = WaveBackend.PYTORCH_MPS
+        backend_name = "PyTorch+MPS (Metal)"
+        # Adjust settings for MPS
+        gpus = 1
+        pp_size = 1
+        cfg.time_sliced.gpu_ids = [0]
+        cfg.time_sliced.pipeline_parallel_size = 1
+        cfg.distributed.num_workers = 1
+        cfg.distributed.pipeline_parallel_size = 1
+    else:
+        pytorch_backend = WaveBackend.PYTORCH_CPU
+        backend_name = "PyTorch+CPU"
+        gpus = 1
+        pp_size = 1
+    
+    typer.echo(f"[Device Selection] Detected: {device}, Using: {backend_name}")
     
     # Configure Python-only waves (2 & 4)
     all_stages = ["data_prep", "pretrain", "sft", "grpo", "distillation", "export"]
@@ -259,10 +307,10 @@ def run_python(
     cfg.time_sliced.num_waves = 2
     cfg.training.max_steps = start_step + max_steps
     
-    backend_name = "PyTorch+CUDA" if use_cuda else "PyTorch+CPU"
     typer.echo("═══════════════════════════════════════════════════════════")
     typer.echo(f"  {backend_name} Backend Execution (Waves 2 & 4)")
     typer.echo(f"  GPUs: {gpus} | PP: {pp_size} | Steps: {start_step}-{start_step + max_steps}")
+    typer.echo(f"  Auto-download: {auto_download}")
     typer.echo("═══════════════════════════════════════════════════════════")
     typer.echo(cfg.summary())
     

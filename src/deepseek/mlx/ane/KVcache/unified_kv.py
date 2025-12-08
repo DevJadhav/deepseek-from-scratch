@@ -160,10 +160,11 @@ def zero_copy_transfer(
         Tensor accessible from target compute unit (same memory location)
     """
     if not check_unified_memory_available():
-        # Fallback for non-Apple hardware
+        # Fallback for non-Apple hardware - use centralized device selection
         if target_unit == ComputeUnit.CPU:
             return tensor.cpu()
         elif target_unit in (ComputeUnit.GPU, ComputeUnit.ANE):
+            # CUDA first, then MPS
             if torch.cuda.is_available():
                 return tensor.cuda()
             elif torch.backends.mps.is_available():

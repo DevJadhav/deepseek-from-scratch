@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from deepseek.pipeline.config import PipelineConfig
+from deepseek.pipeline.config import Backend, PipelineConfig
 
 
 @dataclass
@@ -21,6 +21,35 @@ class StageContext:
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
+
+
+def get_framework_preset_for_backend(backend: Backend) -> str:
+    """Get the appropriate framework preset based on the selected backend.
+    
+    This ensures no cross-backend fallback - if you select PyTorch,
+    you stay in PyTorch (CUDA → MPS → CPU). If you select Rust,
+    you stay in Rust (CUDA → Metal → CPU).
+    
+    Args:
+        backend: The configured backend
+        
+    Returns:
+        Framework preset name to use
+    """
+    # PyTorch backends -> PyTorch-only fallback
+    if backend in (Backend.PYTORCH_CUDA, Backend.PYTORCH_MPS, Backend.PYTORCH_CPU):
+        return "pytorch_only"
+    
+    # Rust backend -> Rust-only fallback  
+    if backend == Backend.RUST:
+        return "rust_only"
+    
+    # MLX -> Apple Silicon optimized (can mix MLX/PyTorch)
+    if backend == Backend.MLX:
+        return "apple_silicon"
+    
+    # Auto or Modal -> use heterogeneous (default)
+    return "default"
 
 
 class BaseStage(ABC):
@@ -40,6 +69,14 @@ class BaseStage(ABC):
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
+
+    def get_framework_preset(self) -> str:
+        """Get the framework preset based on configured backend.
+        
+        Returns:
+            Framework preset name that respects backend selection
+        """
+        return get_framework_preset_for_backend(self.config.backend)
 
     def setup(self):
         """Optional setup hook before running the stage."""

@@ -206,13 +206,8 @@ impl GPT {
 
 pub fn run_benchmark() -> Result<()> {
     println!("\n=== Chapter 2 Bonus: Attention Benchmarking ===");
-    let device = if candle_core::utils::metal_is_available() {
-        println!("Using Metal GPU");
-        Device::new_metal(0)?
-    } else {
-        println!("Using CPU");
-        Device::Cpu
-    };
+    let device = crate::utils::device::DeviceSelector::get_device()?;
+    println!("Using device: {}", crate::utils::device::DeviceSelector::device_type_string(&device));
     let cfg = Config::default();
     let attn_types = ["MHA", "MQA", "GQA", "MLA", "DeepSeek"];
     let batch_size = 4;

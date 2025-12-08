@@ -48,6 +48,8 @@ The following modules are imported from ``deepseek-from-scratch-python/src/deeps
 from __future__ import annotations
 
 import os
+import tempfile
+import pickle
 from dataclasses import asdict
 from typing import Any, Dict, Optional
 
@@ -145,9 +147,9 @@ class PyTorchRunner(BaseRunner):
         # ACTUAL DEEPSEEK IMPLEMENTATION IMPORTS
         # These are the real modules from deepseek-from-scratch-python
         # ============================================================
-        from deepseek.model.transformer import DeepSeekModel  # Main model
-        from deepseek.model.mla import DeepSeekAttention      # MLA attention (used by DeepSeekLayer)
-        from deepseek.model.moe import DeepSeekMoE            # MoE layer (used by DeepSeekLayer)
+        from deepseek.torch.model.transformer import DeepSeekModel  # Main model
+        from deepseek.torch.model.mla import DeepSeekAttention      # MLA attention (used by DeepSeekLayer)
+        from deepseek.torch.model.moe import DeepSeekMoE            # MoE layer (used by DeepSeekLayer)
         from deepseek.torch.training.training import get_device      # Device selection utility
 
         ctx = get_context()
@@ -252,8 +254,12 @@ class PyTorchRunner(BaseRunner):
             if global_step >= max_steps:
                 break
 
-        checkpoint = Checkpoint.from_dict({"model_state_dict": model.state_dict()})
-        train.save_checkpoint(checkpoint=checkpoint)
+        # Save checkpoint using new Ray Train API (from_directory instead of deprecated from_dict)
+        with tempfile.TemporaryDirectory() as checkpoint_dir:
+            checkpoint_path = os.path.join(checkpoint_dir, "model.pt")
+            torch.save({"model_state_dict": model.state_dict()}, checkpoint_path)
+            checkpoint = Checkpoint.from_directory(checkpoint_dir)
+            train.report({"final": True}, checkpoint=checkpoint)
 
     # ------------------------------------------------------------------
     # Runner interface
@@ -353,7 +359,8 @@ class PyTorchRunner(BaseRunner):
         result = trainer.fit()
         checkpoint_path = None
         if result.checkpoint:
-            checkpoint_path = result.checkpoint.to_uri()
+            # Use .path for newer Ray versions (to_uri deprecated)
+            checkpoint_path = result.checkpoint.path
 
         return RunnerResult(
             metrics=result.metrics,

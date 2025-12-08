@@ -66,13 +66,8 @@ impl StandardMoEWrapper {
 
 pub fn run_benchmark() -> Result<()> {
     println!("\n=== Chapter 3 Bonus: MoE Benchmarking ===");
-    let device = if candle_core::utils::metal_is_available() {
-        println!("Using Metal GPU");
-        Device::new_metal(0)?
-    } else {
-        println!("Using CPU");
-        Device::Cpu
-    };
+    let device = crate::utils::device::DeviceSelector::get_device()?;
+    println!("Using device: {}", crate::utils::device::DeviceSelector::device_type_string(&device));
     let cfg = Config::default();
     
     let batch_size = 4;

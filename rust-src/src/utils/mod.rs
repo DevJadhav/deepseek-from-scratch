@@ -1,5 +1,6 @@
 pub mod checkpoint;
 pub mod config;
+pub mod device;
 pub mod error;
 pub mod hetero_prof;
 pub mod kernel_fusions;
@@ -15,3 +16,6 @@ pub use hetero_prof::{
     get_profiler, AggregatedMetrics, TensorTransferMetrics, 
     ExpertLoadMetrics, KVCacheMetrics, GPUMetrics
 };
+
+// Re-export device types for convenience
+pub use device::{DeviceSelector, DeviceConfig, DevicePriority};

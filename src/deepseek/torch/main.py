@@ -12,16 +12,13 @@ from deepseek.torch.training.sft import DeepSeekChatTemplate, SFTConfig, SFTTrai
 from deepseek.torch.model.reward_model import RewardConfig, RewardModelSimple
 from deepseek.torch.training.dpo import DPOConfig, DPOTrainer
 from deepseek.torch.training.distillation import DistillationConfig, KDLossType, compute_distillation_loss, combined_distillation_loss, HiddenDistillation, compute_layer_mapping, ProgressiveConfig, ProgressiveDistiller, TemperatureScheduler
+from deepseek.torch.utils.device import get_device
 import torch.nn.functional as F
 
 def run_demos():
     print("=== DeepSeek from Scratch (Python) ===")
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
+    # Use centralized device selection with CUDA → MPS → CPU priority
+    device = get_device()
     print(f"Using device: {device}")
     
     # --- Chapter 1 ---

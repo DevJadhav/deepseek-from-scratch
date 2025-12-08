@@ -73,13 +73,16 @@ from deepseek.pipeline.config import PipelineConfig
 
 
 # Stage name mapping: Ray pipeline stage -> Rust CLI subcommand
+# The Rust binary supports: train, pretrain, evaluate, export, serve, verify-cuda, demo
+# For stages without dedicated subcommands (sft, grpo, distillation), we use 'train'
+# with the stage specified in the config JSON file
 RUST_STAGE_COMMANDS = {
-    "pretrain": "pretrain",
-    "sft": "sft",
-    "grpo": "grpo",
-    "distillation": "distill",
-    "export": "export",
-    "benchmark": "benchmark",
+    "pretrain": "pretrain",   # Uses dedicated pretrain subcommand
+    "sft": "train",           # Uses train subcommand with stage="sft" in config
+    "grpo": "train",          # Uses train subcommand with stage="grpo" in config  
+    "distillation": "train",  # Uses train subcommand with stage="distillation" in config
+    "export": "export",       # Uses dedicated export subcommand
+    "benchmark": "evaluate",  # Maps to evaluate subcommand
 }
 
 

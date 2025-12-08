@@ -345,14 +345,10 @@ class RewardTrainer:
         self.model = model
         self.config = config
         
-        # Device
+        # Device - use centralized device selection with CUDA → MPS → CPU priority
         if device is None:
-            if torch.cuda.is_available():
-                device = torch.device("cuda")
-            elif torch.backends.mps.is_available():
-                device = torch.device("mps")
-            else:
-                device = torch.device("cpu")
+            from deepseek.torch.utils.device import get_device
+            device = get_device()
         self.device = device
         
         self.model = model.to(device)
