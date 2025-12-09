@@ -397,6 +397,17 @@ class RustRunner(BaseRunner):
             import time
             time.sleep(30)  # Wait 30s before retry
 
+        # Add rust_val_loss metric for Ray Tune integration
+        if "loss" in metrics:
+            metrics["rust_val_loss"] = metrics["loss"]
+        elif "val_loss" in metrics:
+            metrics["rust_val_loss"] = metrics["val_loss"]
+        else:
+            metrics["rust_val_loss"] = float("inf") if metrics.get("error") else 0.0
+        
+        # Add training_iteration for Tune schedulers
+        metrics["training_iteration"] = metrics.get("step", 0)
+        
         return RunnerResult(
             metrics=metrics,
             checkpoint_path=None,
@@ -455,11 +466,17 @@ class RustRunner(BaseRunner):
                     if line:
                         if stream == process.stdout:
                             stdout_lines.append(line.strip())
-                            # Parse metrics from JSON output
-                            if line.strip().startswith('{"metrics":'):
+                            # Parse metrics from JSON output lines
+                            # Rust outputs: {"rust_val_loss": 0.5, "step": 100, ...}
+                            stripped = line.strip()
+                            if stripped.startswith('{') and stripped.endswith('}'):
                                 try:
-                                    parsed = json.loads(line.strip())
-                                    metrics.update(parsed.get("metrics", {}))
+                                    parsed = json.loads(stripped)
+                                    # Update metrics with parsed values
+                                    if "metrics" in parsed:
+                                        metrics.update(parsed["metrics"])
+                                    elif "loss" in parsed or "rust_val_loss" in parsed or "step" in parsed:
+                                        metrics.update(parsed)
                                 except json.JSONDecodeError:
                                     pass
                             # Log progress lines
@@ -524,12 +541,16 @@ class RustRunner(BaseRunner):
 
             metrics["returncode"] = process.returncode
 
-            # Try to parse metrics from stdout
+            # Try to parse metrics from stdout (JSON lines)
             for line in process.stdout.split("\n"):
-                if line.startswith('{"metrics":'):
+                stripped = line.strip()
+                if stripped.startswith('{') and stripped.endswith('}'):
                     try:
-                        parsed = json.loads(line)
-                        metrics.update(parsed.get("metrics", {}))
+                        parsed = json.loads(stripped)
+                        if "metrics" in parsed:
+                            metrics.update(parsed["metrics"])
+                        elif "loss" in parsed or "rust_val_loss" in parsed or "step" in parsed:
+                            metrics.update(parsed)
                         break
                     except json.JSONDecodeError:
                         pass

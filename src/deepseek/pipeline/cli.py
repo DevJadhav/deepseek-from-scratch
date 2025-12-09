@@ -71,8 +71,62 @@ def run(
         "--max-steps",
         help="Maximum training steps",
     ),
+    experiment: Optional[str] = typer.Option(
+        None,
+        "--experiment",
+        help="Hydra experiment config to use (e.g., tune_asha, tune_pbt)",
+    ),
 ):
     """Execute the configured pipeline."""
+    # Handle experiment config via Hydra
+    if experiment:
+        try:
+            from deepseek.pipeline.tune import HyperparameterSearch
+            from pathlib import Path as PathLib
+            
+            # cli.py is at src/deepseek/pipeline/cli.py
+            # config/hydra is at project_root/config/hydra
+            # parents[3] gets to project root (src -> deepseek -> pipeline -> cli.py)
+            config_dir = PathLib(__file__).parents[3] / "config" / "hydra"
+            config_dir = config_dir.resolve()
+            
+            typer.echo(f"Loading experiment config: {experiment}")
+            search = HyperparameterSearch.from_hydra(
+                overrides=[f"experiment={experiment}"],
+                config_dir=config_dir,
+            )
+            
+            # Determine backend from config or CLI
+            # Keep the full backend name (pytorch_mps, pytorch_cuda) for proper resource allocation
+            tune_backend = backend.value if backend != Backend.AUTO else None
+            if tune_backend is None:
+                # Auto-detect backend
+                import torch
+                if torch.cuda.is_available():
+                    tune_backend = "pytorch_cuda"
+                elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    tune_backend = "pytorch_mps"
+                else:
+                    tune_backend = "mlx"
+            
+            typer.echo(f"Running hyperparameter search with backend: {tune_backend}")
+            typer.echo(f"Scheduler: {search.tune_config.get('scheduler_type', 'asha')}")
+            typer.echo(f"Num samples: {search.tune_config.get('num_samples', 10)}")
+            
+            results = search.run(backend=tune_backend)
+            
+            best = results.get_best_result()
+            typer.echo("\n=== Hyperparameter Search Complete ===")
+            typer.echo(f"Best config: {best.config}")
+            typer.echo(f"Best metric: {best.metrics}")
+            return
+        except ImportError as e:
+            typer.echo(f"Error: Could not load experiment config. {e}", err=True)
+            raise typer.Exit(1)
+        except Exception as e:
+            typer.echo(f"Error running experiment: {e}", err=True)
+            raise typer.Exit(1)
+    
     if time_sliced:
         cfg = PipelineConfig.production_3gpu_time_sliced()
         cfg.time_sliced.gpu_ids = list(range(gpus))

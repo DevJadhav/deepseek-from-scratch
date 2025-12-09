@@ -680,17 +680,27 @@ name = "deepseek-from-scratch"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "datasets" },
     { name = "hydra-core" },
+    { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform != 'linux'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform != 'linux'" },
     { name = "omegaconf" },
+    { name = "pandas" },
+    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "ray", extra = ["default", "tune"] },
     { name = "rich" },
+    { name = "safetensors" },
     { name = "structlog" },
+    { name = "tokenizers" },
+    { name = "torch", version = "2.7.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "tqdm" },
+    { name = "transformers" },
     { name = "typer" },
 ]
 
@@ -713,7 +723,6 @@ all = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
-    { name = "ray", extra = ["default"] },
     { name = "ruff" },
     { name = "safetensors" },
     { name = "sse-starlette" },
@@ -762,7 +771,6 @@ mlx = [
 ]
 pipeline = [
     { name = "modal" },
-    { name = "ray", extra = ["default"] },
 ]
 quantization = [
     { name = "bitsandbytes", marker = "sys_platform == 'linux'" },
@@ -789,6 +797,7 @@ requires-dist = [
     { name = "bitsandbytes", marker = "sys_platform == 'linux' and extra == 'quantization'", specifier = ">=0.41.0" },
     { name = "boto3", marker = "extra == 'cloud'", specifier = ">=1.28.0" },
     { name = "coremltools", marker = "sys_platform == 'darwin' and extra == 'ane'", specifier = ">=7.1" },
+    { name = "datasets", specifier = ">=2.14.0" },
     { name = "datasets", marker = "extra == 'torch'", specifier = ">=2.14.0" },
     { name = "deepseek-from-scratch", extras = ["pipeline", "torch", "cuda", "mlx", "inference", "quantization", "cloud", "distributed", "dev"], marker = "extra == 'all'" },
     { name = "deepspeed", marker = "sys_platform == 'linux' and extra == 'distributed'", specifier = ">=0.10.0" },
@@ -798,12 +807,15 @@ requires-dist = [
     { name = "hydra-core", specifier = ">=1.3.0" },
     { name = "maturin", marker = "extra == 'rust'", specifier = ">=1.4.0" },
     { name = "memory-profiler", marker = "extra == 'dev'", specifier = ">=0.61.0" },
+    { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.10.0" },
     { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'mlx'", specifier = ">=0.10.0" },
     { name = "modal", marker = "extra == 'pipeline'", specifier = ">=0.64.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "omegaconf", specifier = ">=2.3.0" },
+    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.4.0" },
+    { name = "pyarrow", specifier = ">=14.0.0" },
     { name = "pyarrow", marker = "extra == 'rust'", specifier = ">=14.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
@@ -812,17 +824,21 @@ requires-dist = [
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.5.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "ray", extras = ["default"], marker = "extra == 'pipeline'", specifier = ">=2.9.0" },
+    { name = "ray", extras = ["default", "tune"], specifier = ">=2.9.0" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "safetensors", specifier = ">=0.4.0" },
     { name = "safetensors", marker = "extra == 'torch'", specifier = ">=0.4.0" },
     { name = "sse-starlette", marker = "extra == 'inference'", specifier = ">=1.6.0" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "tensorboard", marker = "extra == 'torch'", specifier = ">=2.14.0" },
+    { name = "tokenizers", specifier = ">=0.15.0" },
     { name = "tokenizers", marker = "extra == 'torch'", specifier = ">=0.15.0" },
+    { name = "torch", specifier = ">=2.2.0" },
     { name = "torch", marker = "extra == 'ane'", specifier = ">=2.0.0" },
     { name = "torch", marker = "extra == 'torch'", specifier = ">=2.2.0" },
     { name = "tqdm", specifier = ">=4.65.0" },
+    { name = "transformers", specifier = ">=4.35.0" },
     { name = "transformers", marker = "extra == 'torch'", specifier = ">=4.35.0" },
     { name = "triton", marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = ">=2.2.0" },
     { name = "typer", specifier = ">=0.9.0" },
@@ -3378,6 +3394,14 @@ default = [
     { name = "smart-open" },
     { name = "virtualenv" },
 ]
+tune = [
+    { name = "fsspec" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "tensorboardx" },
+]
 
 [[package]]
 name = "referencing"
@@ -3879,6 +3903,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/7a/13/e503968fefabd4c6b2650af21e110aa8466fe21432cd7c43a84577a89438/tensorboard_data_server-0.7.2-py3-none-any.whl", hash = "sha256:7e0610d205889588983836ec05dc098e80f97b7e7bbff7e994ebb78f578d0ddb", size = 2356, upload-time = "2023-10-23T21:23:32.16Z" },
     { url = "https://files.pythonhosted.org/packages/b7/85/dabeaf902892922777492e1d253bb7e1264cadce3cea932f7ff599e53fea/tensorboard_data_server-0.7.2-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:9fe5d24221b29625dbc7328b0436ca7fc1c23de4acf4d272f1180856e32f9f60", size = 4823598, upload-time = "2023-10-23T21:23:33.714Z" },
     { url = "https://files.pythonhosted.org/packages/73/c6/825dab04195756cf8ff2e12698f22513b3db2f64925bdd41671bfb33aaa5/tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl", hash = "sha256:ef687163c24185ae9754ed5650eb5bc4d84ff257aabdc33f0cc6f74d8ba54530", size = 6590363, upload-time = "2023-10-23T21:23:35.583Z" },
+]
+
+[[package]]
+name = "tensorboardx"
+version = "2.6.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform != 'linux'" },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform != 'linux'" },
+    { name = "packaging", version = "24.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "packaging", version = "25.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/c5/d4cc6e293fb837aaf9f76dd7745476aeba8ef7ef5146c3b3f9ee375fe7a5/tensorboardx-2.6.4.tar.gz", hash = "sha256:b163ccb7798b31100b9f5fa4d6bc22dad362d7065c2f24b51e50731adde86828", size = 4769801, upload-time = "2025-06-10T22:37:07.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/1d/b5d63f1a6b824282b57f7b581810d20b7a28ca951f2d5b59f1eb0782c12b/tensorboardx-2.6.4-py3-none-any.whl", hash = "sha256:5970cf3a1f0a6a6e8b180ccf46f3fe832b8a25a70b86e5a237048a7c0beb18e2", size = 87201, upload-time = "2025-06-10T22:37:05.44Z" },
 ]
 
 [[package]]

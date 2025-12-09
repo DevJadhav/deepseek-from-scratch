@@ -249,7 +249,14 @@ class PyTorchRunner(BaseRunner):
 
             global_step += 1
 
-            train.report({"loss": loss.item() * grad_accum, "step": global_step})
+            # Report metrics for Ray Tune integration
+            # Use torch_val_loss as the metric name for consistency with tune config
+            train.report({
+                "loss": loss.item() * grad_accum,
+                "torch_val_loss": loss.item() * grad_accum,  # Backend-specific metric for Tune
+                "step": global_step,
+                "training_iteration": global_step,  # Required by Tune schedulers
+            })
 
             if global_step >= max_steps:
                 break

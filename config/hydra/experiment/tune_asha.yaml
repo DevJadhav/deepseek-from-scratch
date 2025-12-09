@@ -1,0 +1,96 @@
+# @package _global_
+# Ray Tune ASHA Experiment Configuration
+# ======================================
+# 
+# ASHA (Async Successive Halving Algorithm) scheduler for fast early stopping.
+# Best for: Quickly identifying good hyperparameter configurations by terminating
+# underperforming trials early.
+#
+# Usage:
+#   uv run python scripts/train_hydra.py experiment=tune_asha
+#   uv run python -m deepseek.pipeline.tune experiment=tune_asha
+
+defaults:
+  - /model: deepseek_109m
+  - /training: single_gpu
+  - /optimizer: adamw
+  - /data: fineweb
+  - /logging: wandb
+  - /environment: local
+  - _self_
+
+# Experiment Metadata
+experiment:
+  name: tune-asha
+  description: "Hyperparameter tuning with ASHA scheduler"
+  tags:
+    - tune
+    - asha
+    - hyperparameter-search
+
+# Ray Tune Configuration
+tune:
+  enabled: true
+  scheduler_type: asha
+  
+  # Trial settings
+  num_samples: 20           # Number of HP configurations to try
+  max_concurrent_trials: 4  # Parallel trials (adjust based on GPU count)
+  
+  # ASHA-specific settings
+  grace_period: 500         # Min steps before considering early stopping
+  reduction_factor: 4       # Aggressive halving for fast convergence
+  max_t: 10000              # Max steps per trial
+  
+  # Metric configuration (backend-specific names)
+  torch_metric: torch_val_loss
+  mlx_metric: mlx_val_loss
+  rust_metric: rust_val_loss
+  mode: min                 # Minimize loss
+  
+  # Checkpoint integration
+  checkpoint_subdir: tune/asha
+  trial_name_template: "{experiment_name}_trial_{trial_id}"
+  
+  # Search space - ASHA benefits from broader exploration
+  search_space:
+    # Learning rate: log-uniform sampling (common for LR)
+    learning_rate_min: 1.0e-5
+    learning_rate_max: 1.0e-3
+    
+    # Batch size: discrete choices
+    batch_size_choices: [8, 16, 32, 64]
+    
+    # Warmup steps: uniform int sampling
+    warmup_steps_min: 100
+    warmup_steps_max: 2000
+    
+    # Weight decay: log-uniform sampling
+    weight_decay_min: 0.001
+    weight_decay_max: 0.1
+    
+    # MoE capacity factor: uniform sampling
+    moe_capacity_factor_min: 1.0
+    moe_capacity_factor_max: 2.0
+    
+    # GRPO beta (for alignment): log-uniform sampling
+    grpo_beta_min: 0.01
+    grpo_beta_max: 0.5
+
+# Training overrides for tuning
+training:
+  max_steps: ${tune.max_t}  # Use tune's max_t
+  eval_interval: 100        # Frequent evaluation for early stopping decisions
+  save_interval: ${tune.grace_period}  # Checkpoint at grace period intervals
+
+# Override checkpoint directory for tune experiments
+checkpoint:
+  output_dir: checkpoints/${tune.checkpoint_subdir}
+  save_total_limit: 3       # Keep fewer checkpoints per trial
+
+# Logging for tune experiments
+logging:
+  wandb:
+    project: deepseek-tune
+    group: asha-search
+    tags: ${experiment.tags}

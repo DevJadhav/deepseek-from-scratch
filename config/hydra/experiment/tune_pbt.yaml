@@ -1,0 +1,109 @@
+# @package _global_
+# Ray Tune PBT Experiment Configuration
+# =====================================
+#
+# PBT (Population Based Training) scheduler for adaptive hyperparameter mutation.
+# Best for: Long training runs where hyperparameters should adapt over time.
+# Requires frequent checkpointing for perturbation.
+#
+# Usage:
+#   uv run python scripts/train_hydra.py experiment=tune_pbt
+#   uv run python -m deepseek.pipeline.tune experiment=tune_pbt
+
+defaults:
+  - /model: deepseek_109m
+  - /training: single_gpu
+  - /optimizer: adamw
+  - /data: fineweb
+  - /logging: wandb
+  - /environment: local
+  - _self_
+
+# Experiment Metadata
+experiment:
+  name: tune-pbt
+  description: "Hyperparameter tuning with PBT scheduler"
+  tags:
+    - tune
+    - pbt
+    - hyperparameter-search
+    - adaptive
+
+# Ray Tune Configuration
+tune:
+  enabled: true
+  scheduler_type: pbt
+  
+  # Trial settings - PBT works best with larger populations
+  num_samples: 8            # Population size (should be divisible by 2 for exploitation)
+  max_concurrent_trials: 8  # All population members run concurrently
+  
+  # PBT-specific settings
+  perturbation_interval: 100  # Steps between exploit/explore cycles
+  grace_period: 200           # Steps before first perturbation
+  max_t: 50000                # Longer training for PBT to adapt
+  
+  # Hyperparam mutations (PBT-specific)
+  # Values are perturbed by multiplying/dividing by these factors
+  hyperparam_mutations:
+    learning_rate: [0.8, 1.0, 1.2]  # Perturb by ±20%
+    weight_decay: [0.5, 1.0, 2.0]   # Perturb by ±100%
+  
+  # Metric configuration (backend-specific names)
+  torch_metric: torch_val_loss
+  mlx_metric: mlx_val_loss
+  rust_metric: rust_val_loss
+  mode: min
+  
+  # Checkpoint integration - PBT needs frequent checkpoints
+  checkpoint_subdir: tune/pbt
+  trial_name_template: "{experiment_name}_trial_{trial_id}"
+  
+  # Search space - PBT starts with initial values, then mutates
+  search_space:
+    # Learning rate: narrower initial range, PBT will explore
+    learning_rate_min: 5.0e-5
+    learning_rate_max: 5.0e-4
+    
+    # Batch size: discrete choices (PBT doesn't mutate discrete values well)
+    batch_size_choices: [16, 32]
+    
+    # Warmup steps: narrower range for stability
+    warmup_steps_min: 500
+    warmup_steps_max: 1500
+    
+    # Weight decay: log-uniform sampling
+    weight_decay_min: 0.01
+    weight_decay_max: 0.1
+    
+    # MoE capacity factor
+    moe_capacity_factor_min: 1.0
+    moe_capacity_factor_max: 1.5
+    
+    # GRPO beta
+    grpo_beta_min: 0.05
+    grpo_beta_max: 0.2
+
+# Training overrides for PBT
+training:
+  max_steps: ${tune.max_t}
+  eval_interval: ${tune.perturbation_interval}  # Eval at perturbation intervals
+  save_interval: ${tune.perturbation_interval}  # CRITICAL: checkpoint for PBT perturbation
+
+# Override checkpoint directory for tune experiments
+checkpoint:
+  output_dir: checkpoints/${tune.checkpoint_subdir}
+  save_total_limit: 2       # PBT needs fewer checkpoints (overwrites frequently)
+  async_save: true          # Async saves help with frequent checkpointing
+
+# Logging for tune experiments
+logging:
+  wandb:
+    project: deepseek-tune
+    group: pbt-search
+    tags: ${experiment.tags}
+
+# Memory optimization for running full population
+memory:
+  gradient_checkpointing: true
+  checkpoint_every_n_layers: 2  # More aggressive for memory

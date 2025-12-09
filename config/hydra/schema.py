@@ -296,6 +296,95 @@ class EnvironmentConfig:
 
 
 # =============================================================================
+# Ray Tune Configuration Schema
+# =============================================================================
+
+class TuneSchedulerType(str, Enum):
+    """Supported Ray Tune scheduler types."""
+    ASHA = "asha"  # Async Successive Halving Algorithm (default, fast early stopping)
+    PBT = "pbt"    # Population Based Training (adaptive mutation)
+
+
+@dataclass
+class TuneSearchSpaceConfig:
+    """
+    Search space configuration for hyperparameter tuning.
+    
+    For each hyperparameter, specify either:
+    - choices: List of discrete values to sample from (tune.choice)
+    - min/max: Range for continuous sampling (tune.loguniform for lr, tune.uniform otherwise)
+    """
+    # Learning rate search space
+    learning_rate_min: float = 1e-5
+    learning_rate_max: float = 1e-3
+    learning_rate_choices: Optional[list[float]] = None  # If set, overrides min/max
+    
+    # Batch size search space
+    batch_size_choices: list[int] = field(default_factory=lambda: [8, 16, 32, 64])
+    
+    # Warmup steps search space
+    warmup_steps_min: int = 100
+    warmup_steps_max: int = 2000
+    
+    # Weight decay search space
+    weight_decay_min: float = 0.001
+    weight_decay_max: float = 0.1
+    
+    # MoE capacity factor search space
+    moe_capacity_factor_min: float = 1.0
+    moe_capacity_factor_max: float = 2.0
+    
+    # GRPO beta search space (for alignment stage)
+    grpo_beta_min: float = 0.01
+    grpo_beta_max: float = 0.5
+
+
+@dataclass
+class TuneConfig:
+    """
+    Ray Tune hyperparameter optimization configuration.
+    
+    Integrates with existing Hydra config system and checkpoint structure.
+    Uses Hydra for config composition only; Ray Tune handles trial parallelization.
+    """
+    # Enable/disable tuning
+    enabled: bool = False
+    
+    # Scheduler configuration
+    scheduler_type: str = "asha"  # "asha" (default) or "pbt"
+    
+    # Trial configuration
+    num_samples: int = 10  # Number of hyperparameter configurations to try
+    max_concurrent_trials: int = 4  # Max parallel trials
+    
+    # ASHA-specific settings (Async Successive Halving)
+    grace_period: int = 100  # Min steps before early stopping
+    reduction_factor: int = 4  # Halving factor for ASHA
+    max_t: int = 10000  # Max training steps per trial
+    
+    # PBT-specific settings (Population Based Training)
+    perturbation_interval: int = 100  # Steps between perturbations (checkpoint frequency)
+    hyperparam_mutations: Optional[dict] = None  # Custom mutation ranges
+    
+    # Backend-specific metric names for optimization
+    torch_metric: str = "torch_val_loss"
+    mlx_metric: str = "mlx_val_loss"
+    rust_metric: str = "rust_val_loss"
+    
+    # Optimization direction
+    mode: str = "min"  # "min" for loss, "max" for accuracy
+    
+    # Checkpoint integration (uses Hydra checkpoint.output_dir)
+    checkpoint_subdir: str = "tune"  # Subdirectory under checkpoint.output_dir
+    
+    # Search space configuration
+    search_space: TuneSearchSpaceConfig = field(default_factory=TuneSearchSpaceConfig)
+    
+    # Trial naming
+    trial_name_template: str = "{experiment_name}_trial_{trial_id}"
+
+
+# =============================================================================
 # Master Configuration Schema
 # =============================================================================
 
@@ -311,6 +400,7 @@ class DeepSeekConfig:
     data: DataConfig = field(default_factory=DataConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     environment: EnvironmentConfig = field(default_factory=EnvironmentConfig)
+    tune: TuneConfig = field(default_factory=TuneConfig)
 
 
 # =============================================================================
@@ -361,6 +451,28 @@ def validate_config(cfg: Any) -> list[str]:
                 errors.append("model.moe.num_experts must be positive")
             if moe.top_k > moe.num_experts:
                 errors.append("model.moe.top_k cannot exceed num_experts")
+    
+    # Tune validation
+    if hasattr(cfg, 'tune') and cfg.tune.enabled:
+        tune = cfg.tune
+        if tune.scheduler_type not in ("asha", "pbt"):
+            errors.append("tune.scheduler_type must be 'asha' or 'pbt'")
+        if tune.num_samples <= 0:
+            errors.append("tune.num_samples must be positive")
+        if tune.max_concurrent_trials <= 0:
+            errors.append("tune.max_concurrent_trials must be positive")
+        if tune.grace_period <= 0:
+            errors.append("tune.grace_period must be positive")
+        if tune.perturbation_interval <= 0:
+            errors.append("tune.perturbation_interval must be positive")
+        if tune.mode not in ("min", "max"):
+            errors.append("tune.mode must be 'min' or 'max'")
+        # Search space validation
+        ss = tune.search_space
+        if ss.learning_rate_min >= ss.learning_rate_max:
+            errors.append("tune.search_space.learning_rate_min must be < learning_rate_max")
+        if ss.warmup_steps_min >= ss.warmup_steps_max:
+            errors.append("tune.search_space.warmup_steps_min must be < warmup_steps_max")
     
     return errors
 

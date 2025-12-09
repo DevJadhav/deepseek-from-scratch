@@ -380,6 +380,20 @@ class MLXRunner(BaseRunner):
         metrics["stage"] = self.stage
         metrics["backend"] = "mlx"
         
+        # Add mlx_val_loss metric for Ray Tune integration
+        # Use the most relevant loss metric from the stage
+        if "distillation_loss" in metrics:
+            metrics["mlx_val_loss"] = metrics["distillation_loss"]
+        elif "grpo_loss" in metrics:
+            metrics["mlx_val_loss"] = metrics["grpo_loss"]
+        elif "loss" in metrics:
+            metrics["mlx_val_loss"] = metrics["loss"]
+        else:
+            metrics["mlx_val_loss"] = 0.0  # Default for demo runs
+        
+        # Add training_iteration for Tune schedulers
+        metrics["training_iteration"] = metrics.get("final_step", 0)
+        
         return RunnerResult(
             metrics=metrics,
             checkpoint_path=checkpoint_path,
