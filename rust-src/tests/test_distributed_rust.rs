@@ -1,6 +1,7 @@
 //! Distributed Training Infrastructure Tests - Rust Backend
 //!
 //! Comprehensive tests for distributed training components.
+//! Each test initializes its own distributed state to avoid parallel test conflicts.
 
 use candle_core::{Device, Tensor};
 use std::time::Duration;
@@ -19,7 +20,15 @@ use deepseek_rust::distributed::{
     distributed_checkpoint::{
         CheckpointConfig, CheckpointMetadata,
     },
+    groups::{initialize_distributed, ParallelismConfig},
 };
+
+/// Helper to initialize distributed state for a single test
+fn init_test_distributed() {
+    let config = ParallelismConfig::single_device();
+    // Ignore error if already initialized
+    let _ = initialize_distributed(0, 1, config, "local");
+}
 
 // ============================================================================
 // Expert Parallelism Tests

@@ -736,6 +736,113 @@ class Trainer:
 
 ---
 
+## Modal Cloud GPU Infrastructure
+
+### Overview
+
+DeepSeek From Scratch supports distributed training on Modal cloud GPUs. The infrastructure handles:
+
+1. **Multi-GPU Allocation**: Up to 8 A100 GPUs per node
+2. **Ray Integration**: Distributed training via Ray TorchTrainer
+3. **Cargo Build Caching**: Persistent volumes eliminate rebuild times
+4. **Automatic Checkpointing**: Fault-tolerant training with periodic saves
+5. **Sequential Large-Scale Runs**: Orchestration for >10 GPU configurations
+
+### GPU Concurrency Limits
+
+Modal enforces GPU concurrency limits (typically 10 GPUs per account). The framework handles this automatically:
+
+```python
+@dataclass
+class Parallelism5DConfig:
+    max_gpu_concurrency: int = 10  # Modal limit
+    
+    def num_sequential_runs(self) -> int:
+        """Calculate sequential runs needed for large-scale training."""
+        total_gpus = self.total_gpus()
+        if total_gpus <= self.max_gpu_concurrency:
+            return 1
+        gpus_per_run = min(8, self.max_gpu_concurrency)  # 8-GPU nodes
+        return (total_gpus + gpus_per_run - 1) // gpus_per_run
+```
+
+### Multi-GPU Training with Ray
+
+```python
+from ray.train.torch import TorchTrainer
+from ray.train import ScalingConfig, CheckpointConfig
+
+def train_func():
+    """Distributed training function running on each worker."""
+    import ray.train
+    world_size = ray.train.get_context().get_world_size()
+    rank = ray.train.get_context().get_world_rank()
+    
+    # Scale batch size with world size
+    batch_size = base_batch_size * world_size
+    
+    # Training loop with automatic gradient sync
+    for step in range(max_steps):
+        loss = model(batch)
+        loss.backward()
+        optimizer.step()
+        
+        # Report metrics for checkpointing
+        ray.train.report({"loss": loss.item(), "step": step})
+
+# Configure scaling
+scaling_config = ScalingConfig(
+    num_workers=8,          # 8 GPUs
+    use_gpu=True,
+    resources_per_worker={"GPU": 1}
+)
+
+# Configure checkpointing
+checkpoint_config = CheckpointConfig(
+    checkpoint_frequency=100,  # Every 100 steps
+    num_to_keep=3
+)
+
+trainer = TorchTrainer(
+    train_loop_per_worker=train_func,
+    scaling_config=scaling_config,
+    run_config=RunConfig(checkpoint_config=checkpoint_config)
+)
+result = trainer.fit()
+```
+
+### Cargo Build Caching
+
+Rust builds are cached via Modal volumes to eliminate full rebuilds:
+
+```python
+# Volume definitions
+rust_target_volume = modal.Volume.from_name("rust-target-cache", create_if_missing=True)
+cargo_registry_volume = modal.Volume.from_name("cargo-registry-cache", create_if_missing=True)
+
+@app.function(
+    volumes={
+        "/app/rust_src/target": rust_target_volume,
+        "/root/.cargo/registry": cargo_registry_volume,
+    }
+)
+def run_rust_verification():
+    # Builds use cached artifacts - no cargo clean needed
+    subprocess.run(["cargo", "build", "--release", "--features", "cuda"])
+```
+
+### Running Modal Training
+
+```bash
+# Multi-GPU PyTorch training (8 A100 GPUs)
+uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_pytorch --scale initial --max-steps 1000
+
+# Rust backend verification
+uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_rust --scale initial --max-steps 100
+```
+
+---
+
 ## References
 
 - [Decoupled Weight Decay Regularization (AdamW)](https://arxiv.org/abs/1711.05101)
@@ -743,3 +850,6 @@ class Trainer:
 - [GPipe: Efficient Training of Giant Neural Networks](https://arxiv.org/abs/1811.06965)
 - [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054)
 - [FSDP Documentation](https://pytorch.org/tutorials/intermediate/FSDP_tutorial.html)
+- [Modal Documentation](https://modal.com/docs)
+- [Ray Train Documentation](https://docs.ray.io/en/latest/train/train.html)
+

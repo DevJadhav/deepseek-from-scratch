@@ -45,27 +45,40 @@ if _env_path.exists():
 @dataclass
 class Parallelism5DConfig:
     """
-    5D Parallelism configuration for distributed training.
+    5D Parallelism configuration for distributed training with DualPipe.
     
-    For 10 A100-80GB GPUs, we use:
+    Initial config (8 A100-40GB GPUs):
     - TP=2: Column-parallel for attention QKV projections
-    - PP=1: Single pipeline stage (no inter-layer split)
-    - DP=5: 5 data parallel groups
+    - PP=2: Pipeline parallelism enables DualPipe bidirectional scheduling
+    - DP=2: 2 data parallel groups
     - EP=1: Experts colocated (small MoE)
     - SP=1: No sequence parallelism (short sequences)
     
+    Scaled config (64 A100-40GB GPUs):
+    - TP=4, PP=4, DP=2, EP=2, SP=1
+    - Full DualPipe with MoE expert parallelism
+    
     Communication patterns:
     - TP: NVLink within GPU pairs (high bandwidth)
+    - PP: DualPipe bidirectional for pipeline stages
     - DP: NCCL all-reduce across replicas
     - EP: All-to-all for expert routing (when EP > 1)
+    
+    Cost (A100-40GB @ $0.000583/sec = $2.10/hr):
+    - 8 GPUs: $16.80/hr
+    - 64 GPUs: $134.40/hr
     """
     
     # Core parallelism dimensions
     tensor_parallel_size: int = 2
-    pipeline_parallel_size: int = 1
-    data_parallel_size: int = 5
+    pipeline_parallel_size: int = 2  # PP=2 enables DualPipe
+    data_parallel_size: int = 2
     expert_parallel_size: int = 1
     sequence_parallel_size: int = 1
+    
+    # DualPipe configuration
+    use_dualpipe: bool = True
+    num_micro_batches: int = 8
     
     # Derived values
     @property
@@ -93,23 +106,57 @@ class Parallelism5DConfig:
         Map global GPU rank to parallelism group ranks.
         
         Args:
-            global_rank: Global GPU rank (0-9 for 10 GPUs)
+            global_rank: Global GPU rank
             
         Returns:
             Dict with tp_rank, pp_rank, dp_rank, ep_rank
         """
-        # For TP=2, DP=5: GPUs 0-1 are TP group 0, GPUs 2-3 are TP group 1, etc.
-        tp_rank = global_rank % self.tensor_parallel_size
-        dp_rank = global_rank // self.tensor_parallel_size
+        # Layout: [TP, PP, DP, EP] nested from innermost to outermost
+        tp_size = self.tensor_parallel_size
+        pp_size = self.pipeline_parallel_size
+        dp_size = self.data_parallel_size
+        ep_size = self.expert_parallel_size
+        
+        tp_rank = global_rank % tp_size
+        pp_rank = (global_rank // tp_size) % pp_size
+        dp_rank = (global_rank // (tp_size * pp_size)) % dp_size
+        ep_rank = (global_rank // (tp_size * pp_size * dp_size)) % ep_size
         
         return {
             "global_rank": global_rank,
             "tp_rank": tp_rank,
-            "pp_rank": 0,  # Single pipeline stage
+            "pp_rank": pp_rank,
             "dp_rank": dp_rank,
-            "ep_rank": 0,  # Single expert group
-            "sp_rank": 0,  # No sequence parallel
+            "ep_rank": ep_rank,
+            "sp_rank": 0,  # SP handled separately
         }
+    
+    @property
+    def estimated_cost_per_hour(self) -> float:
+        """Estimated cost per hour in USD (A100-40GB @ $2.10/hr)."""
+        return self.total_gpus * 2.10
+    
+    @classmethod
+    def initial_8gpu(cls) -> "Parallelism5DConfig":
+        """Initial 8-GPU config for verification."""
+        return cls(
+            tensor_parallel_size=2,
+            pipeline_parallel_size=2,
+            data_parallel_size=2,
+            expert_parallel_size=1,
+            sequence_parallel_size=1,
+        )
+    
+    @classmethod
+    def scaled_64gpu(cls) -> "Parallelism5DConfig":
+        """Scaled 64-GPU config for full DualPipe and MoE."""
+        return cls(
+            tensor_parallel_size=4,
+            pipeline_parallel_size=4,
+            data_parallel_size=2,
+            expert_parallel_size=2,
+            sequence_parallel_size=1,
+        )
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -130,7 +177,7 @@ class ModalConfig:
     
     Manages:
     - Modal authentication (from environment)
-    - GPU configuration (A100-80GB preemptible)
+    - GPU configuration (A100-40GB @ $0.000583/sec)
     - Checkpoint volume mounting
     - NCCL communication settings
     
@@ -145,11 +192,11 @@ class ModalConfig:
     token_id: str = field(default="", repr=False)  # repr=False to hide in logs
     token_secret: str = field(default="", repr=False)  # repr=False to hide in logs
     
-    # GPU configuration
-    gpu_type: str = "H100"
-    gpu_memory: str = "80GB"
-    gpu_count: int = 1  # Per container (we spawn 10 containers)
-    num_containers: int = 10
+    # GPU configuration - A100-40GB for cost efficiency
+    gpu_type: str = "A100"
+    gpu_memory: str = "40GB"
+    gpu_count: int = 1  # Per container
+    num_containers: int = 8  # Initial: 8 GPUs for verification
     use_preemptible: bool = True
     
     # Retry configuration for preemption

@@ -3,23 +3,38 @@ Modal Cloud GPU Integration for DeepSeek Training
 ==================================================
 
 This package provides Modal cloud GPU integration for distributed training
-with 10x A100-80GB GPUs using 5D parallelism (TP=2, PP=1, DP=5, EP=1, SP=1).
+with A100-40GB GPUs using 5D parallelism and DualPipe bidirectional pipeline.
+
+5D Parallelism Configuration
+----------------------------
+Initial (8 GPUs - $16.80/hr):
+- Tensor Parallel (TP) = 2: Split model weights within GPU pairs
+- Pipeline Parallel (PP) = 2: Enables DualPipe bidirectional scheduling
+- Data Parallel (DP) = 2: 2 data parallel replicas
+- Expert Parallel (EP) = 1: Experts on same GPU (small MoE)
+- Sequence Parallel (SP) = 1: No sequence splitting
+
+Total GPUs: TP × PP × DP × EP = 2 × 2 × 2 × 1 = 8 GPUs
+
+Scaled (64 GPUs - $134.40/hr):
+- TP=4, PP=4, DP=2, EP=2, SP=1
+- Full DualPipe with MoE expert parallelism
 
 Usage
 -----
 Deploy and run training on Modal::
 
     # Deploy the Modal app
-    uv run modal deploy modal/app.py
+    uv run modal deploy src/deepseek/cloud/modal/app.py
     
-    # Run training with 10 GPUs
-    uv run modal run modal/gpu_runner.py::run_distributed_training
+    # Run Ray cluster with PyTorch backend (8 GPUs)
+    uv run modal run src/deepseek/cloud/modal/ray_cluster.py::deploy_ray_cluster --scale initial --backend pytorch
     
-    # Run PyTorch CUDA training
-    uv run modal run modal/pytorch_cuda.py::train_pytorch
+    # Run Ray cluster with Rust backend (8 GPUs)
+    uv run modal run src/deepseek/cloud/modal/ray_cluster.py::deploy_ray_cluster --scale initial --backend rust
     
-    # Run Rust CUDA training
-    uv run modal run modal/rust_cuda.py::train_rust
+    # Scale up to 64 GPUs
+    uv run modal run src/deepseek/cloud/modal/ray_cluster.py::deploy_ray_cluster --scale scaled --backend pytorch
 
 Configuration
 -------------
@@ -27,17 +42,6 @@ Set environment variables in `.env`::
 
     MODAL_TOKEN_ID=your-token-id
     MODAL_TOKEN_SECRET=your-token-secret
-
-5D Parallelism Configuration
-----------------------------
-For 10 GPUs, the recommended split is:
-- Tensor Parallel (TP) = 2: Split model weights within GPU pairs
-- Pipeline Parallel (PP) = 1: No pipeline stages (small model)
-- Data Parallel (DP) = 5: 5 data parallel replicas
-- Expert Parallel (EP) = 1: Experts on same GPU (small MoE)
-- Sequence Parallel (SP) = 1: No sequence splitting
-
-Total GPUs: TP × PP × DP × EP = 2 × 1 × 5 × 1 = 10 GPUs
 """
 
 # Configuration

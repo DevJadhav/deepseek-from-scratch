@@ -186,6 +186,13 @@ mod ffi {
         
         pub fn ncclGetVersion(version: *mut i32) -> NcclResult;
     }
+    
+    // CUDA runtime for stream synchronization
+    #[link(name = "cudart")]
+    extern "C" {
+        pub fn cudaStreamSynchronize(stream: CudaStream) -> i32;
+        pub fn cudaDeviceSynchronize() -> i32;
+    }
 }
 
 // Re-export FFI functions when CUDA is available

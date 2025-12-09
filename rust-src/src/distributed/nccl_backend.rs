@@ -140,10 +140,30 @@ impl NcclCommunicator {
             }
             #[cfg(feature = "cuda")]
             candle_core::Storage::Cuda(cuda_storage) => {
-                // For CUDA, we need the device pointer
-                let ptr = *cuda_storage.as_cuda_slice::<f32>()
-                    .map_err(|e| e.to_string())?
-                    .device_ptr() as *const std::ffi::c_void;
+                // For CUDA, we need the device pointer - handle each dtype correctly
+                let ptr: *const std::ffi::c_void = match tensor.dtype() {
+                    DType::F32 => *cuda_storage.as_cuda_slice::<f32>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                    DType::F64 => *cuda_storage.as_cuda_slice::<f64>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                    DType::F16 => *cuda_storage.as_cuda_slice::<half::f16>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                    DType::BF16 => *cuda_storage.as_cuda_slice::<half::bf16>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                    DType::I64 => *cuda_storage.as_cuda_slice::<i64>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                    DType::U32 => *cuda_storage.as_cuda_slice::<u32>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                    DType::U8 => *cuda_storage.as_cuda_slice::<u8>()
+                        .map_err(|e| e.to_string())?
+                        .device_ptr() as *const std::ffi::c_void,
+                };
                 Ok((ptr, count))
             }
             _ => Err("Unsupported storage type for NCCL".to_string()),
@@ -176,6 +196,19 @@ impl NcclCommunicator {
         
         check_nccl_result(result)
             .map_err(|e| candle_core::Error::Msg(e))?;
+        
+        // CRITICAL: Synchronize stream after NCCL operation
+        // NCCL operations are asynchronous - must wait for completion
+        #[cfg(feature = "cuda")]
+        unsafe {
+            use super::nccl_sys::cudaStreamSynchronize;
+            let cuda_result = cudaStreamSynchronize(self.stream);
+            if cuda_result != 0 {
+                return Err(candle_core::Error::Msg(
+                    format!("cudaStreamSynchronize failed with error {}", cuda_result)
+                ));
+            }
+        }
         
         Ok(output)
     }

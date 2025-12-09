@@ -1,0 +1,12 @@
+# Ignore Cargo build artifacts - these will be built in the container
+target/
+
+# Ignore any local checkpoints
+checkpoints/
+
+# Ignore editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

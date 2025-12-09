@@ -132,12 +132,17 @@ rust_image = (
 )
 
 # GPU configurations for different training scales
+# Using A100-40GB @ $0.000583/sec for cost efficiency
 GPU_CONFIGS = {
-    "single": "H100",
-    "small": "H100:2",
-    "medium": "H100:4",
-    "large": "H100:8",
+    "single": "A100",       # 1x A100-40GB
+    "small": "A100:2",      # 2x A100-40GB
+    "medium": "A100:4",     # 4x A100-40GB
+    "large": "A100:8",      # 8x A100-40GB (1 node)
+    "xlarge": "A100:8",     # For multi-node: 8 GPUs per node
 }
+
+# Cost estimates per hour (A100-40GB @ $0.000583/sec = $2.10/hour)
+COST_PER_GPU_HOUR = 2.10  # USD
 
 
 # =============================================================================
@@ -178,19 +183,69 @@ class TrainingConfig:
 
 @dataclass
 class DistributedConfig:
-    """5D Parallelism configuration."""
-    # Data parallelism
-    data_parallel_size: int = 1
-    # Tensor parallelism (split layers across GPUs)
-    tensor_parallel_size: int = 1
-    # Pipeline parallelism (split model layers across GPUs)
-    pipeline_parallel_size: int = 1
-    # Expert parallelism (for MoE)
+    """
+    5D Parallelism configuration for distributed training.
+    
+    Initial config (8 GPUs): TP=2, PP=2, DP=2, EP=1, SP=1
+    - Enables DualPipe with PP=2 for bidirectional pipeline
+    - Cost: 8 × $2.10/hr = $16.80/hr
+    
+    Scaled config (64 GPUs): TP=4, PP=4, DP=2, EP=2, SP=1
+    - Full DualPipe with MoE expert parallelism
+    - Cost: 64 × $2.10/hr = $134.40/hr
+    """
+    # Data parallelism (replicate model, partition data)
+    data_parallel_size: int = 2
+    # Tensor parallelism (split layers across GPUs within node)
+    tensor_parallel_size: int = 2
+    # Pipeline parallelism (split model layers across nodes) - enables DualPipe
+    pipeline_parallel_size: int = 2
+    # Expert parallelism (for MoE layers)
     expert_parallel_size: int = 1
-    # Sequence parallelism (split sequence across GPUs)
+    # Sequence parallelism (split sequence for long contexts)
     sequence_parallel_size: int = 1
     # ZeRO optimization stage (0, 1, 2, or 3)
     zero_stage: int = 2
+    # DualPipe configuration
+    use_dualpipe: bool = True
+    num_micro_batches: int = 8
+    
+    @property
+    def total_gpus(self) -> int:
+        """Total GPUs required: TP × PP × DP × EP."""
+        return (
+            self.tensor_parallel_size
+            * self.pipeline_parallel_size
+            * self.data_parallel_size
+            * self.expert_parallel_size
+        )
+    
+    @property
+    def estimated_cost_per_hour(self) -> float:
+        """Estimated cost per hour in USD."""
+        return self.total_gpus * 2.10  # A100-40GB rate
+    
+    @classmethod
+    def initial_8gpu(cls) -> "DistributedConfig":
+        """Initial 8-GPU config for verification."""
+        return cls(
+            tensor_parallel_size=2,
+            pipeline_parallel_size=2,
+            data_parallel_size=2,
+            expert_parallel_size=1,
+            sequence_parallel_size=1,
+        )
+    
+    @classmethod
+    def scaled_64gpu(cls) -> "DistributedConfig":
+        """Scaled 64-GPU config for full DualPipe and MoE."""
+        return cls(
+            tensor_parallel_size=4,
+            pipeline_parallel_size=4,
+            data_parallel_size=2,
+            expert_parallel_size=2,
+            sequence_parallel_size=1,
+        )
 
 
 # =============================================================================
@@ -199,7 +254,7 @@ class DistributedConfig:
 
 @app.function(
     image=trainer_image,
-    gpu="H100",
+    gpu="A100",  # A100-40GB @ $0.000583/sec
     volumes={
         "/data": training_volume,
         "/checkpoints": checkpoint_volume,

@@ -162,8 +162,9 @@ rust_cuda_image = (
 # GPU Configuration
 # =============================================================================
 
-# H100 GPU specification (use string format as per Modal docs)
-GPU_CONFIG = "H100"
+# A100-40GB GPU specification @ $0.000583/sec = $2.10/hr
+# Use A100 for cost efficiency over H100
+GPU_CONFIG = "A100"
 
 # Preemptible/spot configuration with retries
 RETRY_POLICY = modal.Retries(

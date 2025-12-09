@@ -11,17 +11,23 @@ crate-type = ["cdylib", "rlib"]
 default = []
 pyo3-bindings = ["dep:pyo3", "dep:numpy", "dep:ndarray"]
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+# macOS-specific acceleration features
+metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+accelerate = ["candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate", "dep:accelerate-src"]
 
 [dependencies]
-candle-core = { version = "0.8.2", features = ["metal", "accelerate"] }
-candle-nn = { version = "0.8.2", features = ["metal", "accelerate"] }
-candle-transformers = { version = "0.8.2", features = ["metal", "accelerate"] }
+# Candle ML framework - base dependencies without platform-specific features
+candle-core = { version = "0.8.2" }
+candle-nn = { version = "0.8.2" }
+candle-transformers = { version = "0.8.2" }
 anyhow = "1.0"
-accelerate-src = "0.3.2"
 tracing = "0.1.43"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
 thiserror = "2.0.17"
 tokio = { version = "1.0", features = ["full"] }
+
+# macOS-specific accelerate (optional, only enabled on macOS)
+accelerate-src = { version = "0.3.2", optional = true }
 
 # CLI parsing
 clap = { version = "4.5", features = ["derive"] }

@@ -4,7 +4,7 @@ use deepseek_rust::model::{r1, reward_model};
 use deepseek_rust::training::{grpo, pipeline, sft, distillation};
 use deepseek_rust::benchmarks::{attention_benchmark, moe_benchmark, mtp_fp8_benchmark, training_benchmark};
 
-use candle_core::{Device, Tensor, Result, DType};
+use candle_core::{Device, Tensor, Result, DType, Module, D};
 use candle_nn::{VarBuilder, VarMap};
 use clap::{Parser, Subcommand};
 use deepseek_rust::model::attention::{MultiQueryAttention, GroupedQueryAttention};
@@ -104,6 +104,9 @@ enum Commands {
     
     /// Verify CUDA distributed setup
     VerifyCuda,
+    
+    /// Verify NCCL distributed backend availability
+    VerifyNccl,
     
     /// Run demo of all components (default behavior)
     Demo,
@@ -232,6 +235,9 @@ fn main() -> Result<()> {
         Some(Commands::VerifyCuda) => {
             verify_cuda()?;
         }
+        Some(Commands::VerifyNccl) => {
+            verify_nccl()?;
+        }
         Some(Commands::Demo) | None => {
             run_demo()?;
         }
@@ -257,24 +263,212 @@ fn run_training(config_path: PathBuf, resume: Option<PathBuf>, max_steps_overrid
     fs::create_dir_all(&output)
         .map_err(|e| candle_core::Error::Msg(format!("Failed to create output dir: {}", e)))?;
     
-    // Initialize device
-    let device = get_device()?;
-    let varmap = VarMap::new();
+    // Get distributed configuration from environment (set by launcher)
+    let world_size = std::env::var("WORLD_SIZE").ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+    let rank = std::env::var("RANK").ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    let local_rank: usize = std::env::var("LOCAL_RANK").ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    
+    let is_distributed = world_size > 1;
+    info!("Distributed training: {} (world_size={}, rank={}, local_rank={})", 
+          is_distributed, world_size, rank, local_rank);
+    
+    // Initialize device - for distributed training, each rank uses its local_rank GPU
+    // IMPORTANT: Don't use CUDA_VISIBLE_DEVICES filtering, instead select GPU by local_rank
+    let device = if is_distributed {
+        #[cfg(feature = "cuda")]
+        {
+            match Device::cuda_if_available(local_rank) {
+                Ok(d) => {
+                    info!("Rank {}: Using CUDA device {}", rank, local_rank);
+                    d
+                }
+                Err(e) => {
+                    info!("Rank {}: CUDA device {} not available ({}), falling back", rank, local_rank, e);
+                    get_device()?
+                }
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
+        {
+            get_device()?
+        }
+    } else {
+        get_device()?
+    };
+    
+    let is_cuda = matches!(device, Device::Cuda(_));
+    let device_name = match &device {
+        Device::Cuda(_) => "CUDA GPU",
+        Device::Metal(_) => "Metal GPU",
+        Device::Cpu => "CPU",
+    };
+    info!("Using device: {} (CUDA available: {})", device_name, is_cuda);
+    
+    // Initialize distributed backend if multi-GPU
+    let communicator: Option<Box<dyn deepseek_rust::distributed::CollectiveCommunicator>> = 
+        if is_distributed {
+            info!("Initializing distributed backend...");
+            
+            // Try NCCL first if CUDA is available
+            #[cfg(feature = "cuda")]
+            {
+                use deepseek_rust::distributed::nccl_backend::NcclCommunicator;
+                
+                // Check for NCCL unique ID path (shared between ranks)
+                let nccl_id_path = std::env::var("NCCL_UNIQUE_ID_PATH").ok();
+                
+                let nccl_result = if let Some(ref id_path) = nccl_id_path {
+                    // Try to initialize with shared unique ID
+                    if rank == 0 {
+                        // Rank 0 generates and saves unique ID
+                        info!("Rank 0: Generating NCCL unique ID...");
+                        match NcclCommunicator::generate_unique_id() {
+                            Ok(unique_id) => {
+                                // Save unique ID to file for other ranks
+                                let id_bytes: Vec<u8> = unique_id.internal.to_vec();
+                                if let Err(e) = std::fs::write(id_path, &id_bytes) {
+                                    info!("Failed to save NCCL unique ID: {}", e);
+                                    Err(format!("Failed to save unique ID: {}", e))
+                                } else {
+                                    info!("Rank 0: Saved NCCL unique ID to: {}", id_path);
+                                    // Ensure file is synced to disk
+                                    std::thread::sleep(std::time::Duration::from_millis(100));
+                                    
+                                    // Create ready signal file for other ranks
+                                    let ready_path = format!("{}.ready", id_path);
+                                    if let Err(e) = std::fs::write(&ready_path, "ready") {
+                                        info!("Warning: Could not write ready signal: {}", e);
+                                    } else {
+                                        info!("Rank 0: Created ready signal at {}", ready_path);
+                                    }
+                                    
+                                    // Initialize NCCL communicator
+                                    info!("Rank 0: Initializing NCCL communicator (world_size={})...", world_size);
+                                    NcclCommunicator::new(rank, world_size, unique_id, device.clone())
+                                }
+                            }
+                            Err(e) => Err(e),
+                        }
+                    } else {
+                        // Other ranks wait for ready signal and load unique ID from file
+                        info!("Rank {}: Waiting for NCCL unique ID from rank 0...", rank);
+                        let ready_path = format!("{}.ready", id_path);
+                        
+                        let mut retries = 0;
+                        let max_retries = 300; // 30 seconds max wait
+                        
+                        // Wait for ready signal first
+                        while retries < max_retries {
+                            if std::path::Path::new(&ready_path).exists() {
+                                break;
+                            }
+                            retries += 1;
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                        }
+                        
+                        if retries >= max_retries {
+                            Err(format!("Rank {}: Timeout waiting for rank 0 ready signal ({}s)", rank, max_retries / 10))
+                        } else {
+                            info!("Rank {}: Ready signal received after {}ms", rank, retries * 100);
+                            
+                            // Small stagger to avoid all ranks hitting file at once
+                            std::thread::sleep(std::time::Duration::from_millis(50 * rank as u64));
+                            
+                            // Now read the unique ID
+                            match std::fs::read(id_path) {
+                                Ok(bytes) if bytes.len() == 128 => {
+                                    let mut id = deepseek_rust::distributed::nccl_sys::NcclUniqueId::default();
+                                    id.internal.copy_from_slice(&bytes);
+                                    info!("Rank {}: Loaded NCCL unique ID", rank);
+                                    
+                                    // Initialize NCCL communicator
+                                    info!("Rank {}: Initializing NCCL communicator (world_size={})...", rank, world_size);
+                                    NcclCommunicator::new(rank, world_size, id, device.clone())
+                                }
+                                Ok(bytes) => Err(format!("Rank {}: Invalid unique ID size: {} (expected 128)", rank, bytes.len())),
+                                Err(e) => Err(format!("Rank {}: Failed to read unique ID: {}", rank, e)),
+                            }
+                        }
+                    }
+                } else {
+                    // No shared ID path, try single-process NCCL (for testing)
+                    Err("NCCL_UNIQUE_ID_PATH not set for multi-process training".to_string())
+                };
+                
+                match nccl_result {
+                    Ok(comm) => {
+                        info!("✓ NCCL communicator initialized successfully");
+                        Some(Box::new(comm) as Box<dyn deepseek_rust::distributed::CollectiveCommunicator>)
+                    }
+                    Err(e) => {
+                        info!("NCCL initialization failed: {}. Using LocalCommunicator fallback.", e);
+                        let comms = deepseek_rust::distributed::LocalCommunicator::new_group(world_size);
+                        Some(Box::new(comms.into_iter().nth(rank).unwrap()))
+                    }
+                }
+            }
+            
+            #[cfg(not(feature = "cuda"))]
+            {
+                // No CUDA, use LocalCommunicator
+                info!("CUDA not available, using LocalCommunicator");
+                let comms = deepseek_rust::distributed::LocalCommunicator::new_group(world_size);
+                Some(Box::new(comms.into_iter().nth(rank).unwrap()))
+            }
+        } else {
+            None
+        };
+    
+    // Build model
+    info!("Building model for stage: {}", config.stage);
+    info!("Model config: d_model={}, num_heads={}, num_layers={}, vocab_size={}", 
+          config.d_model, config.num_heads, config.num_layers, config.vocab_size);
+    
+    let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
     
-    // Build model based on config stage
-    info!("Building model for stage: {}", config.stage);
-    info!("Model config: d_model={}, num_heads={}, num_layers={}", 
-          config.d_model, config.num_heads, config.num_layers);
+    // Create a simple transformer block for real training
+    // Embedding layer
+    let embedding = candle_nn::embedding(config.vocab_size, config.d_model, vb.pp("embedding"))?;
     
-    // Training loop (simplified - actual implementation would be more complete)
+    // Simple linear layers to simulate transformer
+    let layers: Vec<candle_nn::Linear> = (0..config.num_layers)
+        .map(|i| candle_nn::linear(config.d_model, config.d_model, vb.pp(format!("layer_{}", i))))
+        .collect::<Result<Vec<_>>>()?;
+    
+    // Output projection
+    let output_proj = candle_nn::linear(config.d_model, config.vocab_size, vb.pp("output"))?;
+    
+    // Count parameters
+    let num_params: usize = varmap.data().lock().unwrap().iter()
+        .map(|(_, v)| v.as_tensor().elem_count())
+        .sum();
+    info!("Model parameters: {} ({:.2}M)", num_params, num_params as f64 / 1e6);
+    
+    // Per-GPU batch size (total batch = per_gpu * world_size)
+    let per_gpu_batch = config.batch_size;
+    let global_batch_size = per_gpu_batch * world_size;
+    info!("Batch size: per_gpu={}, global={}", per_gpu_batch, global_batch_size);
+    
+    // Initialize optimizer state (simplified AdamW)
+    let mut adam_m: std::collections::HashMap<String, Tensor> = std::collections::HashMap::new();
+    let mut adam_v: std::collections::HashMap<String, Tensor> = std::collections::HashMap::new();
+    
+    // Training loop
     let mut step = 0;
     let start_time = std::time::Instant::now();
+    let mut total_tokens = 0usize;
+    let mut losses = Vec::new();
     
     // Resume from checkpoint if specified
     if let Some(resume_path) = resume {
         info!("Resuming from checkpoint: {:?}", resume_path);
-        // Load checkpoint state (simplified)
         if let Ok(state_str) = fs::read_to_string(resume_path.join("training_state.json")) {
             if let Ok(state) = serde_json::from_str::<serde_json::Value>(&state_str) {
                 if let Some(saved_step) = state.get("step").and_then(|v| v.as_u64()) {
@@ -283,29 +477,189 @@ fn run_training(config_path: PathBuf, resume: Option<PathBuf>, max_steps_overrid
                 }
             }
         }
+        // Load model weights
+        let weights_path = resume_path.join("model.safetensors");
+        if weights_path.exists() {
+            varmap.load(&weights_path)?;
+            info!("Loaded model weights from {:?}", weights_path);
+        }
     }
     
-    // Simulated training loop
+    // Real training loop with actual forward/backward passes
     while step < config.max_steps {
         step += 1;
+        let step_start = std::time::Instant::now();
         
-        // Simulate training step
-        let loss = 2.5 - (step as f32 / config.max_steps as f32) * 1.5 + (step as f32 * 0.01).sin() * 0.1;
+        // Generate random input batch (in real training, load from dataset)
+        let input_ids = Tensor::rand(0f32, config.vocab_size as f32, (per_gpu_batch, config.max_seq_len), &device)?
+            .to_dtype(DType::U32)?;
+        let targets = Tensor::rand(0f32, config.vocab_size as f32, (per_gpu_batch, config.max_seq_len), &device)?
+            .to_dtype(DType::U32)?;
         
-        if step % config.log_every_n_steps == 0 {
+        // Forward pass
+        let mut hidden = embedding.forward(&input_ids)?;
+        
+        for layer in &layers {
+            hidden = layer.forward(&hidden)?;
+            // Apply GELU activation
+            hidden = hidden.gelu_erf()?;
+        }
+        
+        let logits = output_proj.forward(&hidden)?;
+        
+        // Compute cross-entropy loss
+        let (batch, seq_len, vocab) = logits.dims3()?;
+        let flat_logits = logits.reshape((batch * seq_len, vocab))?;
+        let flat_targets = targets.reshape((batch * seq_len,))?.to_dtype(DType::U32)?;
+        
+        let log_probs = candle_nn::ops::log_softmax(&flat_logits, D::Minus1)?;
+        let target_log_probs = log_probs.gather(&flat_targets.unsqueeze(1)?, 1)?.squeeze(1)?;
+        let loss = target_log_probs.neg()?.mean_all()?;
+        
+        let loss_val = loss.to_scalar::<f32>()?;
+        losses.push(loss_val);
+        
+        // Backward pass - compute gradients
+        let grads = loss.backward()?;
+        
+        // Gradient synchronization for distributed training
+        // CRITICAL: Use BTreeMap for deterministic iteration order across all ranks
+        // HashMap has non-deterministic order which can cause NCCL deadlock
+        let mut grads_for_update: std::collections::BTreeMap<String, Tensor> = std::collections::BTreeMap::new();
+        
+        // First, collect gradients by parameter name (sorted order)
+        {
+            let vars = varmap.data().lock().unwrap();
+            for (name, var) in vars.iter() {
+                if let Some(grad) = grads.get(var.as_tensor()) {
+                    grads_for_update.insert(name.clone(), grad.clone());
+                }
+            }
+        }
+        
+        // Synchronize gradients across ranks if distributed
+        if let Some(ref comm) = communicator {
+            if comm.world_size() > 1 {
+                if step == 1 {
+                    info!("Distributed gradient sync enabled (world_size={}, rank={})", 
+                          comm.world_size(), comm.rank());
+                    info!("Syncing {} gradients in sorted order", grads_for_update.len());
+                }
+                
+                // All-reduce each gradient and average - sorted order ensures all ranks sync same params
+                let mut sync_count = 0usize;
+                for (name, grad) in grads_for_update.iter_mut() {
+                    match comm.all_reduce(grad) {
+                        Ok(summed) => {
+                            // Average gradients across ranks
+                            if let Ok(avg) = summed / (comm.world_size() as f64) {
+                                *grad = avg;
+                                sync_count += 1;
+                            }
+                        }
+                        Err(e) => {
+                            if step == 1 {
+                                info!("Gradient sync warning for {}: {}", name, e);
+                            }
+                        }
+                    }
+                }
+                if step == 1 {
+                    info!("Successfully synced {} gradients", sync_count);
+                }
+            }
+        }
+        
+        // Compute learning rate with cosine schedule
+        let warmup_steps = config.warmup_steps;
+        let lr = if step < warmup_steps {
+            config.learning_rate * (step as f64) / (warmup_steps as f64)
+        } else {
+            let progress = (step - warmup_steps) as f64 / ((config.max_steps - warmup_steps) as f64);
+            let cosine = 0.5 * (1.0 + (progress * std::f64::consts::PI).cos());
+            config.learning_rate * 0.1 + config.learning_rate * 0.9 * cosine
+        };
+        
+        // Apply gradients with AdamW
+        let beta1 = 0.9f64;
+        let beta2 = 0.95f64;
+        let epsilon = 1e-8f64;
+        let weight_decay = 0.01f64;
+        
+        let vars = varmap.data().lock().unwrap();
+        for (name, var) in vars.iter() {
+            // Use synchronized gradients if available, otherwise fall back to original
+            let grad_opt = grads_for_update.get(name)
+                .cloned()
+                .or_else(|| grads.get(var.as_tensor()).cloned());
+            
+            if let Some(grad) = grad_opt {
+                // Get or initialize momentum states
+                let m = adam_m.entry(name.clone()).or_insert_with(|| {
+                    Tensor::zeros_like(var.as_tensor()).unwrap()
+                });
+                let v = adam_v.entry(name.clone()).or_insert_with(|| {
+                    Tensor::zeros_like(var.as_tensor()).unwrap()
+                });
+                
+                // Update momentum: m = beta1 * m + (1 - beta1) * grad
+                let m_new = ((m.clone() * beta1)? + (&grad * (1.0 - beta1))?)?;
+                
+                // Update variance: v = beta2 * v + (1 - beta2) * grad^2
+                let v_new = ((v.clone() * beta2)? + (grad.sqr()? * (1.0 - beta2))?)?;
+                
+                // Bias correction
+                let m_hat = (&m_new / (1.0 - beta1.powi(step as i32)))?;
+                let v_hat = (&v_new / (1.0 - beta2.powi(step as i32)))?;
+                
+                // Compute update: lr * m_hat / (sqrt(v_hat) + epsilon)
+                let update = ((&m_hat * lr)? / (v_hat.sqrt()? + epsilon)?)?;
+                
+                // Weight decay
+                let decay = (var.as_tensor() * (lr * weight_decay))?;
+                
+                // Apply update: param = param - update - decay
+                let new_val = ((var.as_tensor() - &update)? - decay)?;
+                var.set(&new_val)?;
+                
+                // Update states
+                adam_m.insert(name.clone(), m_new);
+                adam_v.insert(name.clone(), v_new);
+            }
+        }
+        drop(vars);
+        
+        let step_time = step_start.elapsed().as_secs_f64();
+        let tokens_this_step = global_batch_size * config.max_seq_len;
+        total_tokens += tokens_this_step;
+        let tokens_per_sec = tokens_this_step as f64 / step_time;
+        
+        // Log metrics
+        if step % config.log_every_n_steps == 0 || step == 1 {
             let elapsed = start_time.elapsed().as_secs_f64();
-            let tokens_per_sec = (step * config.batch_size * config.max_seq_len) as f32 / elapsed as f32;
+            let avg_loss = losses.iter().rev().take(config.log_every_n_steps).sum::<f32>() 
+                / losses.len().min(config.log_every_n_steps) as f32;
+            let avg_throughput = total_tokens as f64 / elapsed;
             
             let metrics = TrainingMetrics {
                 step,
-                loss,
-                learning_rate: config.learning_rate,
-                tokens_per_second: tokens_per_sec,
+                loss: avg_loss,
+                learning_rate: lr,
+                tokens_per_second: avg_throughput as f32,
                 elapsed_seconds: elapsed,
             };
             
             // Output JSON metrics for Python bridge
             println!("{}", serde_json::to_string(&metrics).unwrap());
+            
+            // Also log to tracing
+            info!(
+                step = step,
+                loss = avg_loss,
+                lr = lr,
+                throughput = avg_throughput,
+                "Training progress"
+            );
         }
         
         // Save checkpoint
@@ -314,10 +668,18 @@ fn run_training(config_path: PathBuf, resume: Option<PathBuf>, max_steps_overrid
             fs::create_dir_all(&ckpt_dir)
                 .map_err(|e| candle_core::Error::Msg(format!("Failed to create checkpoint dir: {}", e)))?;
             
+            // Save model weights
+            varmap.save(ckpt_dir.join("model.safetensors"))?;
+            
             let state = serde_json::json!({
                 "step": step,
-                "loss": loss,
+                "loss": losses.last().unwrap_or(&0.0),
                 "config": config,
+                "total_tokens": total_tokens,
+                "distributed": {
+                    "world_size": world_size,
+                    "rank": rank,
+                }
             });
             fs::write(ckpt_dir.join("training_state.json"), serde_json::to_string_pretty(&state).unwrap())
                 .map_err(|e| candle_core::Error::Msg(format!("Failed to save state: {}", e)))?;
@@ -331,16 +693,34 @@ fn run_training(config_path: PathBuf, resume: Option<PathBuf>, max_steps_overrid
     fs::create_dir_all(&final_dir)
         .map_err(|e| candle_core::Error::Msg(format!("Failed to create final checkpoint dir: {}", e)))?;
     
+    varmap.save(final_dir.join("model.safetensors"))?;
+    
+    let final_loss = losses.last().unwrap_or(&0.0);
+    let total_time = start_time.elapsed().as_secs_f64();
+    let avg_throughput = total_tokens as f64 / total_time;
+    
     let final_state = serde_json::json!({
         "step": step,
-        "loss": 1.0,
+        "loss": final_loss,
         "config": config,
         "status": "completed",
+        "total_tokens": total_tokens,
+        "total_time_secs": total_time,
+        "avg_throughput_tok_sec": avg_throughput,
+        "distributed": {
+            "world_size": world_size,
+            "rank": rank,
+            "local_rank": local_rank,
+            "device": device_name,
+            "global_batch_size": global_batch_size,
+            "backend": if communicator.is_some() { "nccl_or_local" } else { "single_process" },
+        }
     });
     fs::write(final_dir.join("training_state.json"), serde_json::to_string_pretty(&final_state).unwrap())
         .map_err(|e| candle_core::Error::Msg(format!("Failed to save final state: {}", e)))?;
     
     info!("Training complete! Final checkpoint saved to {:?}", final_dir);
+    info!("Total tokens: {}, Avg throughput: {:.2} tok/sec", total_tokens, avg_throughput);
     
     Ok(())
 }
@@ -1087,5 +1467,87 @@ fn verify_cuda() -> Result<()> {
     }
     
     println!("\n=== Verification Complete ===");
+    Ok(())
+}
+
+/// Verify NCCL distributed backend availability
+fn verify_nccl() -> Result<()> {
+    println!("=== NCCL Distributed Backend Verification ===\n");
+    
+    #[cfg(feature = "cuda")]
+    {
+        use deepseek_rust::distributed::nccl_backend::NcclCommunicator;
+        
+        println!("CUDA feature enabled.");
+        
+        // Check CUDA device first
+        match Device::cuda_if_available(0) {
+            Ok(device) => {
+                println!("✓ CUDA device 0 available");
+                
+                // Try to generate NCCL unique ID (proves NCCL library is linked)
+                match NcclCommunicator::generate_unique_id() {
+                    Ok(unique_id) => {
+                        println!("✓ NCCL library available");
+                        println!("✓ Generated unique ID for distributed init");
+                        
+                        // Get environment info
+                        let world_size = std::env::var("WORLD_SIZE").ok()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .unwrap_or(1);
+                        let rank = std::env::var("RANK").ok()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .unwrap_or(0);
+                        
+                        println!("\nEnvironment:");
+                        println!("  WORLD_SIZE: {}", world_size);
+                        println!("  RANK: {}", rank);
+                        
+                        if world_size > 1 {
+                            println!("\n✓ Multi-process distributed mode detected");
+                            println!("  Ready for NCCL collective operations");
+                            
+                            // Save unique_id to file for other ranks (rank 0 only)
+                            if rank == 0 {
+                                if let Some(id_path) = std::env::var("NCCL_UNIQUE_ID_PATH").ok() {
+                                    // Serialize unique_id bytes to file
+                                    let id_bytes: Vec<u8> = unique_id.internal.to_vec();
+                                    if std::fs::write(&id_path, &id_bytes).is_ok() {
+                                        println!("  Saved NCCL unique ID to: {}", id_path);
+                                    }
+                                }
+                            }
+                        } else {
+                            println!("\n⚠ Single process mode (WORLD_SIZE=1)");
+                            println!("  For distributed training, launch with:");
+                            println!("  - torchrun --nproc_per_node=N");
+                            println!("  - mpirun -np N");
+                        }
+                        
+                        println!("\nNCCL available: true");
+                    }
+                    Err(e) => {
+                        println!("✗ NCCL library not available: {}", e);
+                        println!("\nNCCL available: false");
+                        println!("Using LocalCommunicator fallback");
+                    }
+                }
+            }
+            Err(e) => {
+                println!("✗ CUDA device not available: {}", e);
+                println!("\nNCCL available: false");
+                println!("NCCL requires CUDA device");
+            }
+        }
+    }
+    
+    #[cfg(not(feature = "cuda"))]
+    {
+        println!("CUDA feature not enabled.");
+        println!("NCCL available: false");
+        println!("\nNCCL requires: cargo build --features cuda");
+    }
+    
+    println!("\n=== NCCL Verification Complete ===");
     Ok(())
 }

@@ -81,8 +81,8 @@ uv run python scripts/download_tinystories.py
 uv run python -m deepseek.pipeline.cli run --backend mlx --max-steps 1000
 
 # Option B: Modal Cloud GPU (Recommended for production)
-pip install modal && modal setup
-python -m deepseek.pipeline.cli run --backend rust --gpus 3 --pp-size 3 --max-steps 3000
+uv pip install modal && uv run modal setup
+uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_pytorch --scale initial --max-steps 1000
 
 # Option C: Local PyTorch (CPU/CUDA)
 uv run python -m deepseek.pipeline.cli run --backend pytorch --model-size tiny --max-steps 1000
@@ -227,18 +227,22 @@ Best for: Production training, large-scale experiments
 
 ```bash
 # Setup Modal (one-time)
-pip install modal
-modal setup
+uv pip install modal
+uv run modal setup
 
-# Rust backend (fastest - 13.5 steps/sec)
-python -m deepseek.pipeline.cli run --backend rust --gpus 3 --pp-size 3 --max-steps 3000
+# Run multi-GPU distributed training with PyTorch (8 A100 GPUs)
+uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_pytorch --scale initial --max-steps 1000
 
-# Python backend (more flexible - 10.2 steps/sec)
-python -m deepseek.pipeline.cli run --backend pytorch --gpus 3 --pp-size 3 --max-steps 3000
+# Run Rust backend verification (with CUDA)
+uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_rust --scale initial --max-steps 100
 
-# Full time-sliced execution (alternates Rust/Python)
-python -m deepseek.pipeline.cli run --time-sliced --gpus 3 --pp-size 3 --max-steps 3000
+# Pipeline CLI (alternative interface)
+uv run python -m deepseek.pipeline.cli run --backend rust --gpus 3 --pp-size 3 --max-steps 3000
+uv run python -m deepseek.pipeline.cli run --backend pytorch --gpus 3 --pp-size 3 --max-steps 3000
 ```
+
+**GPU Concurrency:** Modal limits concurrent GPU usage (typically 10 GPUs). For large-scale runs (>10 GPUs), 
+the framework automatically orchestrates sequential 8-GPU batches with checkpointing for fault tolerance.
 
 #### Option 2: Local MLX (Apple Silicon)
 
