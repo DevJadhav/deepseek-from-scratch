@@ -3,11 +3,11 @@ Modal Cloud GPU Integration for DeepSeek Training
 ==================================================
 
 This package provides Modal cloud GPU integration for distributed training
-with A100-40GB GPUs using 5D parallelism and DualPipe bidirectional pipeline.
+with A100-80GB GPUs using 5D parallelism and DualPipe bidirectional pipeline.
 
 5D Parallelism Configuration
 ----------------------------
-Initial (8 GPUs - $16.80/hr):
+Initial (8 GPUs - $20.00/hr):
 - Tensor Parallel (TP) = 2: Split model weights within GPU pairs
 - Pipeline Parallel (PP) = 2: Enables DualPipe bidirectional scheduling
 - Data Parallel (DP) = 2: 2 data parallel replicas
@@ -16,7 +16,7 @@ Initial (8 GPUs - $16.80/hr):
 
 Total GPUs: TP × PP × DP × EP = 2 × 2 × 2 × 1 = 8 GPUs
 
-Scaled (64 GPUs - $134.40/hr):
+Scaled (64 GPUs - $160.00/hr):
 - TP=4, PP=4, DP=2, EP=2, SP=1
 - Full DualPipe with MoE expert parallelism
 

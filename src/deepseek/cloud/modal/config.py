@@ -10,15 +10,16 @@ Security Note:
 - Never store secrets in code or dataclass defaults
 - Use `modal secret create` or environment variables for credential management
 
-5D Parallelism for 10 GPUs
---------------------------
-- TP (Tensor Parallel) = 2: Split weights across GPU pairs
-- PP (Pipeline Parallel) = 1: No pipeline stages for small models
-- DP (Data Parallel) = 5: 5 replicas processing different batches
+5D Parallelism for 8 A100-40GB GPUs
+-----------------------------------
+- TP (Tensor Parallel) = 2: Split weights across GPU pairs (NVLink)
+- PP (Pipeline Parallel) = 2: DualPipe bidirectional scheduling
+- DP (Data Parallel) = 2: 2 replicas processing different batches
 - EP (Expert Parallel) = 1: All experts on same GPU
 - SP (Sequence Parallel) = 1: No sequence splitting
 
-Total: TP × PP × DP × EP = 2 × 1 × 5 × 1 = 10 GPUs
+Total: TP × PP × DP × EP = 2 × 2 × 2 × 1 = 8 GPUs
+Cost: 8 × $2.50/hr = $20.00/hr
 """
 
 from __future__ import annotations
@@ -64,9 +65,9 @@ class Parallelism5DConfig:
     - DP: NCCL all-reduce across replicas
     - EP: All-to-all for expert routing (when EP > 1)
     
-    Cost (A100-40GB @ $0.000583/sec = $2.10/hr):
-    - 8 GPUs: $16.80/hr
-    - 64 GPUs: $134.40/hr
+    Cost (A100-80GB @ $2.50/hr per GPU):
+    - 8 GPUs: $20.00/hr
+    - 64 GPUs: $160.00/hr
     """
     
     # Core parallelism dimensions
@@ -133,8 +134,8 @@ class Parallelism5DConfig:
     
     @property
     def estimated_cost_per_hour(self) -> float:
-        """Estimated cost per hour in USD (A100-40GB @ $2.10/hr)."""
-        return self.total_gpus * 2.10
+        """Estimated cost per hour in USD (A100-80GB @ $2.50/hr)."""
+        return self.total_gpus * 2.50
     
     @classmethod
     def initial_8gpu(cls) -> "Parallelism5DConfig":
@@ -177,7 +178,7 @@ class ModalConfig:
     
     Manages:
     - Modal authentication (from environment)
-    - GPU configuration (A100-40GB @ $0.000583/sec)
+    - GPU configuration (A100-80GB @ $2.50/hr per GPU)
     - Checkpoint volume mounting
     - NCCL communication settings
     
@@ -308,18 +309,20 @@ def get_modal_config() -> ModalConfig:
 
 def get_5d_config(
     tp: int = 2,
-    pp: int = 1,
-    dp: int = 5,
+    pp: int = 2,
+    dp: int = 2,
     ep: int = 1,
     sp: int = 1,
 ) -> Parallelism5DConfig:
     """
     Create a 5D parallelism configuration.
     
+    Default is 8-GPU config with DualPipe enabled (PP=2).
+    
     Args:
-        tp: Tensor parallel size (default: 2)
-        pp: Pipeline parallel size (default: 1)
-        dp: Data parallel size (default: 5)
+        tp: Tensor parallel size (default: 2, NVLink pairs)
+        pp: Pipeline parallel size (default: 2, enables DualPipe)
+        dp: Data parallel size (default: 2)
         ep: Expert parallel size (default: 1)
         sp: Sequence parallel size (default: 1)
         

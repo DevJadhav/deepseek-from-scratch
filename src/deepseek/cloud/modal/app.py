@@ -3,7 +3,7 @@ Modal App Definition for DeepSeek Training
 ==========================================
 
 Defines the Modal app with:
-- A100-80GB preemptible GPUs
+- A100-80GB GPUs @ $2.50/hr per GPU
 - Bi-directional checkpoint sync
 - CUDA-enabled container image
 - Structured logging with correlation IDs
@@ -162,8 +162,8 @@ rust_cuda_image = (
 # GPU Configuration
 # =============================================================================
 
-# A100-40GB GPU specification @ $0.000583/sec = $2.10/hr
-# Use A100 for cost efficiency over H100
+# A100-80GB GPU specification @ $2.50/hr per GPU
+# Use A100-80GB for optimal memory capacity
 GPU_CONFIG = "A100"
 
 # Preemptible/spot configuration with retries

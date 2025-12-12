@@ -6,6 +6,7 @@ Implements Phase 1: Pre-Training (Data Ingestion) features:
 - StreamingDataPipeline: HuggingFace streaming integration
 - TokenLevelBatcher: Token-level batching (not sample-level)
 - DynamicPadder: Dynamic padding to minimize compute waste
+- DomainMixer: Multi-domain data mixing with configurable ratios
 
 Reference: production_hardening.md Section 3.1
 """
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -36,6 +38,99 @@ try:
     _HF_AVAILABLE = True
 except ImportError:
     pass
+
+
+# =============================================================================
+# Domain Mixing Configuration (30/30/30/5/5)
+# =============================================================================
+
+# Default domain mixing weights for multi-domain training
+# Based on DeepSeek training data composition:
+# - web: 30% (general web text from FineWeb-Edu)
+# - code: 30% (programming code from Python/StackOverflow)
+# - math: 30% (mathematical content from FineMath)
+# - books: 5% (ML/AI papers from ArXiv)
+# - scientific: 5% (AI research chunks from ArXiv)
+DOMAIN_MIXING_WEIGHTS: dict[str, float] = {
+    "web": 0.30,
+    "code": 0.30,
+    "math": 0.30,
+    "books": 0.05,
+    "scientific": 0.05,
+}
+
+
+@dataclass
+class DomainConfig:
+    """Configuration for a single domain in multi-domain training."""
+    
+    name: str
+    weight: float
+    data_path: Path | str
+    text_column: str = "text"
+    
+    def __post_init__(self):
+        self.data_path = Path(self.data_path)
+
+
+@dataclass  
+class MultiDomainConfig:
+    """Configuration for multi-domain data mixing."""
+    
+    # Domain configurations
+    domains: list[DomainConfig] = field(default_factory=list)
+    
+    # Root data directory
+    data_root: Path | str = "./data"
+    
+    # Validation split ratio
+    validation_split: float = 0.05
+    
+    # Shuffle settings
+    shuffle_seed: int = 42
+    shuffle_buffer_size: int = 10000
+    
+    # Tokenization
+    tokenizer_name: str = "deepseek-ai/deepseek-llm-7b-base"
+    max_seq_length: int = 2048
+    
+    def __post_init__(self):
+        self.data_root = Path(self.data_root)
+        
+        # Initialize default domains if none provided
+        if not self.domains:
+            for domain, weight in DOMAIN_MIXING_WEIGHTS.items():
+                self.domains.append(DomainConfig(
+                    name=domain,
+                    weight=weight,
+                    data_path=self.data_root / domain,
+                ))
+    
+    @property
+    def total_weight(self) -> float:
+        """Total weight across all domains (should sum to 1.0)."""
+        return sum(d.weight for d in self.domains)
+    
+    def validate(self) -> bool:
+        """Validate configuration."""
+        if abs(self.total_weight - 1.0) > 0.001:
+            raise ValueError(f"Domain weights must sum to 1.0, got {self.total_weight}")
+        return True
+    
+    @classmethod
+    def from_weights(
+        cls,
+        weights: dict[str, float],
+        data_root: str | Path = "./data",
+        **kwargs,
+    ) -> "MultiDomainConfig":
+        """Create config from weight dictionary."""
+        data_root = Path(data_root)
+        domains = [
+            DomainConfig(name=name, weight=weight, data_path=data_root / name)
+            for name, weight in weights.items()
+        ]
+        return cls(domains=domains, data_root=data_root, **kwargs)
 
 
 # =============================================================================
@@ -455,6 +550,257 @@ class StreamingDataPipeline:
                 "input_ids": np.array(encoded["input_ids"], dtype=np.int64),
                 "attention_mask": np.array(encoded["attention_mask"], dtype=np.int64),
             }
+
+
+# =============================================================================
+# DomainMixer: Multi-Domain Data Mixing with Configurable Ratios
+# =============================================================================
+
+
+class DomainMixer:
+    """
+    Multi-domain data mixer with configurable mixing ratios.
+    
+    Implements domain mixing for training data as specified in the plan:
+    - web: 30% (general web text from FineWeb-Edu)
+    - code: 30% (programming code)
+    - math: 30% (mathematical content)
+    - books: 5% (ML/AI papers)
+    - scientific: 5% (AI research)
+    
+    Features:
+    - Weighted sampling across domains
+    - Deterministic shuffling per domain
+    - Validation split support
+    - Resume from checkpoint
+    
+    Example:
+        >>> config = MultiDomainConfig.from_weights(DOMAIN_MIXING_WEIGHTS)
+        >>> mixer = DomainMixer(config)
+        >>> for batch in mixer.iterate(batch_size=8):
+        ...     # batch contains samples from mixed domains
+        ...     pass
+    """
+    
+    def __init__(
+        self,
+        config: MultiDomainConfig,
+        tokenizer: Any | None = None,
+    ):
+        """
+        Initialize domain mixer.
+        
+        Args:
+            config: MultiDomainConfig with domain weights and paths
+            tokenizer: Optional pre-loaded tokenizer
+        """
+        self.config = config
+        self.config.validate()
+        self._tokenizer = tokenizer
+        self._domain_iterators: dict[str, Iterator] = {}
+        self._shuffler = DeterministicShuffler(
+            seed=config.shuffle_seed,
+            num_workers=1,
+            buffer_size=config.shuffle_buffer_size,
+        )
+    
+    @property
+    def tokenizer(self):
+        """Lazy-load tokenizer."""
+        if self._tokenizer is None:
+            try:
+                from transformers import AutoTokenizer
+                self._tokenizer = AutoTokenizer.from_pretrained(
+                    self.config.tokenizer_name,
+                    use_fast=True,
+                )
+                if self._tokenizer.pad_token is None:
+                    self._tokenizer.pad_token = self._tokenizer.eos_token
+            except ImportError as exc:
+                raise ImportError(
+                    "transformers required for tokenization. "
+                    "Install with: uv pip install transformers"
+                ) from exc
+        return self._tokenizer
+    
+    def _load_domain_samples(self, domain: DomainConfig) -> list[dict]:
+        """Load all samples from a domain's data files."""
+        import json
+        
+        samples = []
+        data_path = domain.data_path
+        
+        if not data_path.exists():
+            raise FileNotFoundError(f"Domain data not found: {data_path}")
+        
+        # Load from JSONL shards
+        for shard_file in sorted(data_path.glob("shard_*.jsonl")):
+            with open(shard_file) as f:
+                for line in f:
+                    try:
+                        sample = json.loads(line)
+                        text = sample.get(domain.text_column, sample.get("text", ""))
+                        if text and len(text.strip()) > 10:
+                            samples.append({
+                                "text": text,
+                                "domain": domain.name,
+                                "id": sample.get("id", ""),
+                            })
+                    except json.JSONDecodeError:
+                        continue
+        
+        return samples
+    
+    def create_validation_split(
+        self,
+        output_dir: Path | str | None = None,
+    ) -> tuple[list[dict], list[dict]]:
+        """
+        Create train/validation split across all domains.
+        
+        Maintains domain proportions in both splits.
+        
+        Args:
+            output_dir: Optional directory to save splits
+            
+        Returns:
+            Tuple of (train_samples, val_samples)
+        """
+        import json
+        
+        train_samples = []
+        val_samples = []
+        
+        for domain in self.config.domains:
+            samples = self._load_domain_samples(domain)
+            
+            # Deterministic shuffle
+            rng = np.random.Generator(np.random.PCG64(self.config.shuffle_seed))
+            indices = rng.permutation(len(samples))
+            
+            # Split
+            split_idx = int(len(samples) * (1 - self.config.validation_split))
+            train_indices = indices[:split_idx]
+            val_indices = indices[split_idx:]
+            
+            train_samples.extend([samples[i] for i in train_indices])
+            val_samples.extend([samples[i] for i in val_indices])
+        
+        # Save if output_dir provided
+        if output_dir:
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_dir / "train.jsonl", "w") as f:
+                for sample in train_samples:
+                    f.write(json.dumps(sample) + "\n")
+            
+            with open(output_dir / "val.jsonl", "w") as f:
+                for sample in val_samples:
+                    f.write(json.dumps(sample) + "\n")
+            
+            # Write split manifest
+            manifest = {
+                "train_samples": len(train_samples),
+                "val_samples": len(val_samples),
+                "validation_split": self.config.validation_split,
+                "domains": {d.name: d.weight for d in self.config.domains},
+            }
+            with open(output_dir / "split_manifest.json", "w") as f:
+                json.dump(manifest, f, indent=2)
+        
+        return train_samples, val_samples
+    
+    def iterate(
+        self,
+        batch_size: int = 8,
+        epoch: int = 0,
+        is_validation: bool = False,
+    ) -> Generator[list[dict], None, None]:
+        """
+        Iterate over mixed domain samples.
+        
+        Samples are drawn from domains according to their weights.
+        
+        Args:
+            batch_size: Number of samples per batch
+            epoch: Current epoch (for shuffling)
+            is_validation: Use validation split
+            
+        Yields:
+            List of samples (batch)
+        """
+        # Load and prepare samples for each domain
+        domain_samples: dict[str, list[dict]] = {}
+        domain_indices: dict[str, int] = {}
+        
+        for domain in self.config.domains:
+            samples = self._load_domain_samples(domain)
+            
+            # Apply train/val split
+            rng = np.random.Generator(np.random.PCG64(self.config.shuffle_seed))
+            indices = rng.permutation(len(samples))
+            split_idx = int(len(samples) * (1 - self.config.validation_split))
+            
+            if is_validation:
+                sample_indices = indices[split_idx:]
+            else:
+                sample_indices = indices[:split_idx]
+            
+            # Shuffle for this epoch
+            epoch_rng = np.random.Generator(np.random.PCG64(self.config.shuffle_seed + epoch))
+            epoch_indices = epoch_rng.permutation(len(sample_indices))
+            
+            domain_samples[domain.name] = [samples[sample_indices[i]] for i in epoch_indices]
+            domain_indices[domain.name] = 0
+        
+        # Calculate cumulative weights for sampling
+        weights = [d.weight for d in self.config.domains]
+        cumulative_weights = np.cumsum(weights)
+        domain_names = [d.name for d in self.config.domains]
+        
+        # Generate batches
+        batch = []
+        batch_rng = np.random.Generator(np.random.PCG64(self.config.shuffle_seed + epoch + 1000))
+        
+        total_samples = sum(len(s) for s in domain_samples.values())
+        samples_yielded = 0
+        
+        while samples_yielded < total_samples:
+            # Sample domain according to weights
+            r = batch_rng.random()
+            domain_idx = np.searchsorted(cumulative_weights, r)
+            domain_name = domain_names[min(domain_idx, len(domain_names) - 1)]
+            
+            # Get next sample from domain
+            idx = domain_indices[domain_name]
+            if idx < len(domain_samples[domain_name]):
+                batch.append(domain_samples[domain_name][idx])
+                domain_indices[domain_name] += 1
+                samples_yielded += 1
+            
+            # Yield batch when full
+            if len(batch) >= batch_size:
+                yield batch
+                batch = []
+        
+        # Yield remaining samples
+        if batch:
+            yield batch
+    
+    def get_domain_stats(self) -> dict[str, dict]:
+        """Get statistics for each domain."""
+        stats = {}
+        for domain in self.config.domains:
+            samples = self._load_domain_samples(domain)
+            total_chars = sum(len(s["text"]) for s in samples)
+            stats[domain.name] = {
+                "samples": len(samples),
+                "weight": domain.weight,
+                "total_chars": total_chars,
+                "avg_chars_per_sample": total_chars / len(samples) if samples else 0,
+            }
+        return stats
 
 
 # =============================================================================
@@ -1218,9 +1564,14 @@ __all__ = [
     "TokenBatcherConfig",
     "DynamicPaddingConfig",
     "DataIngestionConfig",
+    # Domain mixing configuration
+    "DOMAIN_MIXING_WEIGHTS",
+    "DomainConfig",
+    "MultiDomainConfig",
     # Core classes
     "DeterministicShuffler",
     "StreamingDataPipeline",
+    "DomainMixer",
     "TokenLevelBatcher",
     "DynamicPadder",
     "DataIngestionPipeline",

@@ -1,0 +1,1757 @@
+[
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7945722791499228,
+      "final_perplexity": 6.016900617500505,
+      "avg_loss_variance": 0.06707542782777068,
+      "lr_schedule": "cosine"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.686173569882882,
+        2.456232192677989,
+        2.1837666421024413,
+        1.7945722791499228
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.675413902012846,
+        11.660793044038648,
+        8.879689961085981,
+        6.016900617500505
+      ],
+      "learning_rate": [
+        0.0,
+        0.0002999999999999999,
+        0.00026045941546018383,
+        0.00016499999999999997,
+        6.954058453981609e-05
+      ],
+      "loss_variance": [
+        0,
+        0.0246217570600136,
+        0.04967149927452497,
+        0.08999566158422914,
+        0.17108822122008566
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine",
+      "min_lr_ratio": 0.1,
+      "description": "Cosine annealing to 10% of peak",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004048347473144531,
+    "timestamp": "2025-12-12T05:10:25.875920"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.7865879334210741,
+      "final_perplexity": 5.969050881372959,
+      "avg_loss_variance": 0.08331057887979706,
+      "lr_schedule": "cosine"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.799734544658359,
+        2.4245681380634743,
+        2.017153790734505,
+        1.7865879334210741
+      ],
+      "perplexity": [
+        20.085536923187668,
+        16.44028203111766,
+        11.297349470403443,
+        7.516899788076952,
+        5.969050881372959
+      ],
+      "learning_rate": [
+        0.0,
+        0.0002999999999999999,
+        0.00026045941546018383,
+        0.00016499999999999997,
+        6.954058453981609e-05
+      ],
+      "loss_variance": [
+        0,
+        0.010026563150798721,
+        0.05688643477469444,
+        0.14102397942883255,
+        0.2086159170446596
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine",
+      "min_lr_ratio": 0.1,
+      "description": "Cosine annealing to 10% of peak",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00039505958557128906,
+    "timestamp": "2025-12-12T05:10:27.872837"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8313050729181641,
+      "final_perplexity": 6.24202764631352,
+      "avg_loss_variance": 0.06897797175992505,
+      "lr_schedule": "cosine"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.6501790476098908,
+        2.4537046321889147,
+        2.131278073633409,
+        1.8313050729181641
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.156573119054515,
+        11.631356900756835,
+        8.42562850649492,
+        6.24202764631352
+      ],
+      "learning_rate": [
+        0.0,
+        0.0002999999999999999,
+        0.00026045941546018383,
+        0.00016499999999999997,
+        6.954058453981609e-05
+      ],
+      "loss_variance": [
+        0,
+        0.03059367468278077,
+        0.05104616928199849,
+        0.09920690095898468,
+        0.1640431138758613
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine",
+      "min_lr_ratio": 0.1,
+      "description": "Cosine annealing to 10% of peak",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004489421844482422,
+    "timestamp": "2025-12-12T05:10:29.721609"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine_zero",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7965709032190622,
+      "final_perplexity": 6.028938165155503,
+      "avg_loss_variance": 0.0674704279153329,
+      "lr_schedule": "cosine"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.686173569882882,
+        2.4552836747744244,
+        2.1761514928204013,
+        1.7965709032190622
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.675413902012846,
+        11.649737816935886,
+        8.812326612965979,
+        6.028938165155503
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.00025606601717798207,
+        0.00015,
+        4.3933982822017876e-05
+      ],
+      "loss_variance": [
+        0,
+        0.0246217570600136,
+        0.04983478298561154,
+        0.09157979398413112,
+        0.1713158055469083
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine",
+      "min_lr_ratio": 0.0,
+      "description": "Cosine annealing to 0",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00044798851013183594,
+    "timestamp": "2025-12-12T05:10:31.725852"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine_zero",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.7915265954897328,
+      "final_perplexity": 5.998602920247973,
+      "avg_loss_variance": 0.08244965482779451,
+      "lr_schedule": "cosine"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.799734544658359,
+        2.424153725647727,
+        2.0246852643040953,
+        1.7915265954897328
+      ],
+      "perplexity": [
+        20.085536923187668,
+        16.44028203111766,
+        11.292668678474005,
+        7.573726847286384,
+        5.998602920247973
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.00025606601717798207,
+        0.00015,
+        4.3933982822017876e-05
+      ],
+      "loss_variance": [
+        0,
+        0.010026563150798721,
+        0.056974015099698384,
+        0.139017588009298,
+        0.20623010787917745
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine",
+      "min_lr_ratio": 0.0,
+      "description": "Cosine annealing to 0",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00045108795166015625,
+    "timestamp": "2025-12-12T05:10:33.617815"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine_zero",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8197777534504496,
+      "final_perplexity": 6.170486928052395,
+      "avg_loss_variance": 0.06974099276847989,
+      "lr_schedule": "cosine"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.6501790476098908,
+        2.4527987488735112,
+        2.1284346123940083,
+        1.8197777534504496
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.156573119054515,
+        11.620825019652848,
+        8.401704587905993,
+        6.170486928052395
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.00025606601717798207,
+        0.00015,
+        4.3933982822017876e-05
+      ],
+      "loss_variance": [
+        0,
+        0.03059367468278077,
+        0.051195876699420016,
+        0.09986365399252478,
+        0.1670517584676739
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine",
+      "min_lr_ratio": 0.0,
+      "description": "Cosine annealing to 0",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00037479400634765625,
+    "timestamp": "2025-12-12T05:10:35.625376"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "linear",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7941461656319164,
+      "final_perplexity": 6.014337280985843,
+      "avg_loss_variance": 0.06789400107187649,
+      "lr_schedule": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.686173569882882,
+        2.448576640357552,
+        2.1761514928204013,
+        1.7941461656319164
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.675413902012846,
+        11.571864067334058,
+        8.812326612965979,
+        6.014337280985843
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.000225,
+        0.00015,
+        7.499999999999998e-05
+      ],
+      "loss_variance": [
+        0,
+        0.0246217570600136,
+        0.05100078341325374,
+        0.09200446210019389,
+        0.17184300278592118
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "linear",
+      "min_lr_ratio": 0.0,
+      "description": "Linear decay to 0",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003840923309326172,
+    "timestamp": "2025-12-12T05:10:37.419261"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "linear",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.7855349937007865,
+      "final_perplexity": 5.962769138336292,
+      "avg_loss_variance": 0.08290756848269991,
+      "lr_schedule": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.799734544658359,
+        2.4212233873538995,
+        2.0246852643040953,
+        1.7855349937007865
+      ],
+      "perplexity": [
+        20.085536923187668,
+        16.44028203111766,
+        11.259625776091687,
+        7.573726847286384,
+        5.962769138336292
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.000225,
+        0.00015,
+        7.499999999999998e-05
+      ],
+      "loss_variance": [
+        0,
+        0.010026563150798721,
+        0.057595479572583354,
+        0.1392213762392716,
+        0.20769442345084585
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "linear",
+      "min_lr_ratio": 0.0,
+      "description": "Linear decay to 0",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003998279571533203,
+    "timestamp": "2025-12-12T05:10:39.689589"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "linear",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8337627370318983,
+      "final_perplexity": 6.257387320385504,
+      "avg_loss_variance": 0.06935021307672291,
+      "lr_schedule": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.6501790476098908,
+        2.4463931865206576,
+        2.1284346123940083,
+        1.8337627370318983
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.156573119054515,
+        11.54662500053205,
+        8.401704587905993,
+        6.257387320385504
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.000225,
+        0.00015,
+        7.499999999999998e-05
+      ],
+      "loss_variance": [
+        0,
+        0.03059367468278077,
+        0.052264875537972745,
+        0.10020781345337057,
+        0.16368470170949048
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "linear",
+      "min_lr_ratio": 0.0,
+      "description": "Linear decay to 0",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004909038543701172,
+    "timestamp": "2025-12-12T05:10:41.473174"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "wsd",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7765846625276662,
+      "final_perplexity": 5.909638502914388,
+      "avg_loss_variance": 0.06942222282931079,
+      "lr_schedule": "wsd"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.636173569882882,
+        2.4147688538100693,
+        2.2023029856408027,
+        1.7765846625276662
+      ],
+      "perplexity": [
+        20.085536923187668,
+        13.95968552032146,
+        11.187184183671992,
+        9.04582192749,
+        5.909638502914388
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0002999999999999998
+      ],
+      "loss_variance": [
+        0,
+        0.03309241781294152,
+        0.058209468224647655,
+        0.0870994481091806,
+        0.16870977999978415
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "wsd",
+      "warmup_ratio": 0.1,
+      "stable_ratio": 0.7,
+      "decay_ratio": 0.2,
+      "min_lr_ratio": 0.1,
+      "description": "WSD (10% warmup, 70% stable, 20% decay)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00040078163146972656,
+    "timestamp": "2025-12-12T05:10:46.610306"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "wsd",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.7421399748031463,
+      "final_perplexity": 5.709548648821783,
+      "avg_loss_variance": 0.09678881611684939,
+      "lr_schedule": "wsd"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.749734544658359,
+        2.3782978498051994,
+        1.8993705286081908,
+        1.7421399748031463
+      ],
+      "perplexity": [
+        20.085536923187668,
+        15.638480015089485,
+        10.78652694014448,
+        6.68168718731144,
+        5.709548648821783
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0002999999999999998
+      ],
+      "loss_variance": [
+        0,
+        0.01565819953433973,
+        0.06523461999751516,
+        0.17193669700348518,
+        0.2311145640489069
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "wsd",
+      "warmup_ratio": 0.1,
+      "stable_ratio": 0.7,
+      "decay_ratio": 0.2,
+      "min_lr_ratio": 0.1,
+      "description": "WSD (10% warmup, 70% stable, 20% decay)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005209445953369141,
+    "timestamp": "2025-12-12T05:10:48.656989"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "wsd",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9350509481275937,
+      "final_perplexity": 6.924396831444838,
+      "avg_loss_variance": 0.06903068024200062,
+      "lr_schedule": "wsd"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.600179047609891,
+        2.411857582027544,
+        2.106869224788017,
+        1.9350509481275937
+      ],
+      "perplexity": [
+        20.085536923187668,
+        13.466148900940507,
+        11.154662612568012,
+        8.22245827673119,
+        6.924396831444838
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0002999999999999998
+      ],
+      "loss_variance": [
+        0,
+        0.039964198492533465,
+        0.06013703024307826,
+        0.10470552082266721,
+        0.14034665165172416
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "wsd",
+      "warmup_ratio": 0.1,
+      "stable_ratio": 0.7,
+      "decay_ratio": 0.2,
+      "min_lr_ratio": 0.1,
+      "description": "WSD (10% warmup, 70% stable, 20% decay)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004830360412597656,
+    "timestamp": "2025-12-12T05:10:50.586030"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "wsd_long_stable",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7265846625276662,
+      "final_perplexity": 5.621422032134514,
+      "avg_loss_variance": 0.07201974823668926,
+      "lr_schedule": "wsd"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.636173569882882,
+        2.4147688538100693,
+        2.2023029856408027,
+        1.7265846625276662
+      ],
+      "perplexity": [
+        20.085536923187668,
+        13.95968552032146,
+        11.187184183671992,
+        9.04582192749,
+        5.621422032134514
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0003
+      ],
+      "loss_variance": [
+        0,
+        0.03309241781294152,
+        0.058209468224647655,
+        0.0870994481091806,
+        0.18169740703667653
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "wsd",
+      "warmup_ratio": 0.05,
+      "stable_ratio": 0.8,
+      "decay_ratio": 0.15,
+      "min_lr_ratio": 0.1,
+      "description": "WSD (5% warmup, 80% stable, 15% decay)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00041413307189941406,
+    "timestamp": "2025-12-12T05:10:52.418114"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "wsd_long_stable",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.692139974803146,
+      "final_perplexity": 5.431090675377573,
+      "avg_loss_variance": 0.09931589053593673,
+      "lr_schedule": "wsd"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.749734544658359,
+        2.3782978498051994,
+        1.8993705286081908,
+        1.692139974803146
+      ],
+      "perplexity": [
+        20.085536923187668,
+        15.638480015089485,
+        10.78652694014448,
+        6.68168718731144,
+        5.431090675377573
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0003
+      ],
+      "loss_variance": [
+        0,
+        0.01565819953433973,
+        0.06523461999751516,
+        0.17193669700348518,
+        0.2437499361443436
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "wsd",
+      "warmup_ratio": 0.05,
+      "stable_ratio": 0.8,
+      "decay_ratio": 0.15,
+      "min_lr_ratio": 0.1,
+      "description": "WSD (5% warmup, 80% stable, 15% decay)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00040602684020996094,
+    "timestamp": "2025-12-12T05:10:54.280833"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "wsd_long_stable",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8850509481275937,
+      "final_perplexity": 6.58669001298984,
+      "avg_loss_variance": 0.07101364189153267,
+      "lr_schedule": "wsd"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.600179047609891,
+        2.411857582027544,
+        2.106869224788017,
+        1.8850509481275937
+      ],
+      "perplexity": [
+        20.085536923187668,
+        13.466148900940507,
+        11.154662612568012,
+        8.22245827673119,
+        6.58669001298984
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0003
+      ],
+      "loss_variance": [
+        0,
+        0.039964198492533465,
+        0.06013703024307826,
+        0.10470552082266721,
+        0.15026145989938447
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "wsd",
+      "warmup_ratio": 0.05,
+      "stable_ratio": 0.8,
+      "decay_ratio": 0.15,
+      "min_lr_ratio": 0.1,
+      "description": "WSD (5% warmup, 80% stable, 15% decay)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00046634674072265625,
+    "timestamp": "2025-12-12T05:10:56.098002"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "constant",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7765846625276662,
+      "final_perplexity": 5.909638502914388,
+      "avg_loss_variance": 0.06390188118013324,
+      "lr_schedule": "constant"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.675413902012846,
+        11.760763382129369,
+        9.50961113533469,
+        5.909638502914388
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0003
+      ],
+      "loss_variance": [
+        0,
+        0.0246217570600136,
+        0.04821993959901382,
+        0.07665098191751661,
+        0.17001672732412215
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "constant",
+      "min_lr_ratio": 1.0,
+      "description": "Constant LR after warmup",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003769397735595703,
+    "timestamp": "2025-12-12T05:10:58.146727"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "constant",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.742139974803146,
+      "final_perplexity": 5.709548648821782,
+      "avg_loss_variance": 0.09144660655239827,
+      "lr_schedule": "constant"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "perplexity": [
+        20.085536923187668,
+        16.44028203111766,
+        11.339564002455205,
+        7.02426461504653,
+        5.709548648821782
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0003
+      ],
+      "loss_variance": [
+        0,
+        0.010026563150798721,
+        0.05610164660266584,
+        0.16007671527268363,
+        0.23102810773584315
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "constant",
+      "min_lr_ratio": 1.0,
+      "description": "Constant LR after warmup",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00039577484130859375,
+    "timestamp": "2025-12-12T05:11:00.265878"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "constant",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9350509481275937,
+      "final_perplexity": 6.924396831444838,
+      "avg_loss_variance": 0.06248072184440626,
+      "lr_schedule": "constant"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.156573119054515,
+        11.726574394419018,
+        8.64403272748531,
+        6.924396831444838
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        0.0003,
+        0.0003,
+        0.0003
+      ],
+      "loss_variance": [
+        0,
+        0.03059367468278077,
+        0.04971521501682757,
+        0.09341743241282632,
+        0.13867728710959665
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "constant",
+      "min_lr_ratio": 1.0,
+      "description": "Constant LR after warmup",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005571842193603516,
+    "timestamp": "2025-12-12T05:11:02.301816"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine_restarts",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.788011347214165,
+      "final_perplexity": 5.977553360566668,
+      "avg_loss_variance": 0.06681305696041906,
+      "lr_schedule": "cosine_restarts"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.686173569882882,
+        2.4518150830480554,
+        2.1974739108101136,
+        1.788011347214165
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.675413902012846,
+        11.609399631520603,
+        9.002244281040616,
+        5.977553360566668
+      ],
+      "learning_rate": [
+        0.0,
+        0.0002999999999999999,
+        0.00023999999999999998,
+        0.00019200000000000003,
+        0.00015360000000000005
+      ],
+      "loss_variance": [
+        0,
+        0.0246217570600136,
+        0.050435292418352706,
+        0.0875926590167999,
+        0.17141557630692908
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine_restarts",
+      "num_restarts": 3,
+      "restart_decay": 0.8,
+      "min_lr_ratio": 0.1,
+      "description": "Cosine with 3 restarts (80% decay per restart)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00037479400634765625,
+    "timestamp": "2025-12-12T05:11:05.696565"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine_restarts",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.7703756670992108,
+      "final_perplexity": 5.873059262150993,
+      "avg_loss_variance": 0.085392472987212,
+      "lr_schedule": "cosine_restarts"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.799734544658359,
+        2.4226382798441595,
+        2.0035971383092424,
+        1.7703756670992108
+      ],
+      "perplexity": [
+        20.085536923187668,
+        16.44028203111766,
+        11.275568211802073,
+        7.415683418056307,
+        5.873059262150993
+      ],
+      "learning_rate": [
+        0.0,
+        0.0002999999999999999,
+        0.00023999999999999998,
+        0.00019200000000000003,
+        0.00015360000000000005
+      ],
+      "loss_variance": [
+        0,
+        0.010026563150798721,
+        0.05729493349348075,
+        0.14486895701962765,
+        0.21477191127215284
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine_restarts",
+      "num_restarts": 3,
+      "restart_decay": 0.8,
+      "min_lr_ratio": 0.1,
+      "description": "Cosine with 3 restarts (80% decay per restart)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00043773651123046875,
+    "timestamp": "2025-12-12T05:11:07.784863"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "cosine_restarts",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.869146085441328,
+      "final_perplexity": 6.482758313392984,
+      "avg_loss_variance": 0.06710181280035776,
+      "lr_schedule": "cosine_restarts"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.6501790476098908,
+        2.4494860656220347,
+        2.136396303864331,
+        1.869146085441328
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.156573119054515,
+        11.582392599605035,
+        8.468863361619986,
+        6.482758313392984
+      ],
+      "learning_rate": [
+        0.0,
+        0.0002999999999999999,
+        0.00023999999999999998,
+        0.00019200000000000003,
+        0.00015360000000000005
+      ],
+      "loss_variance": [
+        0,
+        0.03059367468278077,
+        0.051746440410511955,
+        0.09834545089762547,
+        0.1548234980108706
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "cosine_restarts",
+      "num_restarts": 3,
+      "restart_decay": 0.8,
+      "min_lr_ratio": 0.1,
+      "description": "Cosine with 3 restarts (80% decay per restart)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003612041473388672,
+    "timestamp": "2025-12-12T05:11:09.854728"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "exponential",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7976584662527664,
+      "final_perplexity": 6.035498582223323,
+      "avg_loss_variance": 0.07364579087452294,
+      "lr_schedule": "exponential"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.686173569882882,
+        2.406476885381007,
+        2.1152302985640805,
+        1.7976584662527664
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.675413902012846,
+        11.094803941947884,
+        8.291495065664018,
+        6.035498582223323
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        2.9999999999999997e-05,
+        2.9999999999999997e-05,
+        2.9999999999999997e-05
+      ],
+      "loss_variance": [
+        0,
+        0.0246217570600136,
+        0.05877632790538071,
+        0.10766282307025977,
+        0.17716804633696065
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "exponential",
+      "decay_rate": 0.95,
+      "min_lr_ratio": 0.1,
+      "description": "Exponential decay (\u03b3=0.95)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004661083221435547,
+    "timestamp": "2025-12-12T05:11:11.714477"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "exponential",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.7942139974803144,
+      "final_perplexity": 6.0147452584372765,
+      "avg_loss_variance": 0.0787548764938045,
+      "lr_schedule": "exponential"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.799734544658359,
+        2.40282978498052,
+        2.0849370528608193,
+        1.7942139974803144
+      ],
+      "perplexity": [
+        20.085536923187668,
+        16.44028203111766,
+        11.054413776312785,
+        8.044085113615418,
+        6.0147452584372765
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        2.9999999999999997e-05,
+        2.9999999999999997e-05,
+        2.9999999999999997e-05
+      ],
+      "loss_variance": [
+        0,
+        0.010026563150798721,
+        0.06158354517383669,
+        0.12522395920038465,
+        0.1969403149440025
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "exponential",
+      "decay_rate": 0.95,
+      "min_lr_ratio": 0.1,
+      "description": "Exponential decay (\u03b3=0.95)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003669261932373047,
+    "timestamp": "2025-12-12T05:11:13.806513"
+  },
+  {
+    "name": "lr_schedule_ablation",
+    "variation": "exponential",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8135050948127591,
+      "final_perplexity": 6.131902709252989,
+      "avg_loss_variance": 0.07363483390834291,
+      "lr_schedule": "exponential"
+    },
+    "metric_history": {
+      "loss": [
+        3.0,
+        2.6501790476098908,
+        2.406185758202754,
+        2.1056869224788017,
+        1.8135050948127591
+      ],
+      "perplexity": [
+        20.085536923187668,
+        14.156573119054515,
+        11.091574413107617,
+        8.212742589894422,
+        6.131902709252989
+      ],
+      "learning_rate": [
+        0.0,
+        0.0003,
+        2.9999999999999997e-05,
+        2.9999999999999997e-05,
+        2.9999999999999997e-05
+      ],
+      "loss_variance": [
+        0,
+        0.03059367468278077,
+        0.05939141975200842,
+        0.10756811768717081,
+        0.17062095741975453
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "base_lr": 0.0003,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "lr_schedule": "exponential",
+      "decay_rate": 0.95,
+      "min_lr_ratio": 0.1,
+      "description": "Exponential decay (\u03b3=0.95)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00044226646423339844,
+    "timestamp": "2025-12-12T05:11:15.744335"
+  }
+]

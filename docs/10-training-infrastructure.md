@@ -742,28 +742,27 @@ class Trainer:
 
 DeepSeek From Scratch supports distributed training on Modal cloud GPUs. The infrastructure handles:
 
-1. **Multi-GPU Allocation**: Up to 8 A100 GPUs per node
+1. **Multi-GPU Allocation**: 8 A100-40GB GPUs with DualPipe (TP=2, PP=2, DP=2)
 2. **Ray Integration**: Distributed training via Ray TorchTrainer
 3. **Cargo Build Caching**: Persistent volumes eliminate rebuild times
 4. **Automatic Checkpointing**: Fault-tolerant training with periodic saves
-5. **Sequential Large-Scale Runs**: Orchestration for >10 GPU configurations
+5. **Sequential Large-Scale Runs**: Orchestration for scaled GPU configurations
 
-### GPU Concurrency Limits
+### GPU Configuration
 
-Modal enforces GPU concurrency limits (typically 10 GPUs per account). The framework handles this automatically:
+Standard configuration uses 8 A100-40GB GPUs. For scaled runs, the framework orchestrates sequential batches:
 
 ```python
 @dataclass
 class Parallelism5DConfig:
-    max_gpu_concurrency: int = 10  # Modal limit
+    max_gpus_per_batch: int = 8  # A100-40GB standard batch
     
     def num_sequential_runs(self) -> int:
-        """Calculate sequential runs needed for large-scale training."""
+        """Calculate sequential runs needed for scaled training."""
         total_gpus = self.total_gpus()
-        if total_gpus <= self.max_gpu_concurrency:
+        if total_gpus <= self.max_gpus_per_batch:
             return 1
-        gpus_per_run = min(8, self.max_gpu_concurrency)  # 8-GPU nodes
-        return (total_gpus + gpus_per_run - 1) // gpus_per_run
+        return (total_gpus + self.max_gpus_per_batch - 1) // self.max_gpus_per_batch
 ```
 
 ### Multi-GPU Training with Ray

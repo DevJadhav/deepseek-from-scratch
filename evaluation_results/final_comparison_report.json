@@ -1,0 +1,192 @@
+{
+  "generated_at": "2025-12-12T04:43:39.803973",
+  "pytorch_metrics": {
+    "tiny": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "steps": 1000,
+      "final_loss": 10.424,
+      "best_loss": null,
+      "throughput_tok_sec": 267000,
+      "training_time_seconds": 360,
+      "perplexity": null,
+      "downstream_scores": {},
+      "memory_peak_gb": 0.0,
+      "parameters_millions": 10.0,
+      "ablation_results": {},
+      "checkpoint_path": ""
+    },
+    "256M": {
+      "backend": "pytorch",
+      "model_size": "256M",
+      "steps": 5000,
+      "final_loss": 10.382,
+      "best_loss": null,
+      "throughput_tok_sec": 137000,
+      "training_time_seconds": 1800,
+      "perplexity": null,
+      "downstream_scores": {},
+      "memory_peak_gb": 0.0,
+      "parameters_millions": 256.0,
+      "ablation_results": {},
+      "checkpoint_path": ""
+    },
+    "512M": {
+      "backend": "pytorch",
+      "model_size": "512M",
+      "steps": 10000,
+      "final_loss": 10.38,
+      "best_loss": null,
+      "throughput_tok_sec": 14700,
+      "training_time_seconds": 16200.0,
+      "perplexity": null,
+      "downstream_scores": {},
+      "memory_peak_gb": 0.0,
+      "parameters_millions": 512.0,
+      "ablation_results": {},
+      "checkpoint_path": ""
+    }
+  },
+  "rust_metrics": {
+    "tiny": {
+      "backend": "rust",
+      "model_size": "tiny",
+      "steps": 1000,
+      "final_loss": 10.4,
+      "best_loss": null,
+      "throughput_tok_sec": 509920,
+      "training_time_seconds": 64,
+      "perplexity": null,
+      "downstream_scores": {},
+      "memory_peak_gb": 0.0,
+      "parameters_millions": 10.0,
+      "ablation_results": {},
+      "checkpoint_path": ""
+    },
+    "256M": {
+      "backend": "rust",
+      "model_size": "256M",
+      "steps": 5000,
+      "final_loss": 10.374,
+      "best_loss": null,
+      "throughput_tok_sec": 93312,
+      "training_time_seconds": 878,
+      "perplexity": null,
+      "downstream_scores": {},
+      "memory_peak_gb": 0.0,
+      "parameters_millions": 256.0,
+      "ablation_results": {},
+      "checkpoint_path": ""
+    },
+    "512M": {
+      "backend": "rust",
+      "model_size": "512M",
+      "steps": 10000,
+      "final_loss": 10.374,
+      "best_loss": null,
+      "throughput_tok_sec": 22198,
+      "training_time_seconds": 3704,
+      "perplexity": null,
+      "downstream_scores": {},
+      "memory_peak_gb": 0.0,
+      "parameters_millions": 512.0,
+      "ablation_results": {},
+      "checkpoint_path": ""
+    }
+  },
+  "ablation_studies": {
+    "attention": {
+      "ablation_type": "attention",
+      "variants": {
+        "MHA": {
+          "final_loss": 10.378,
+          "throughput": 100005,
+          "params_m": 216.7
+        },
+        "GQA": {
+          "final_loss": 10.379,
+          "throughput": 140329,
+          "params_m": 197.8
+        },
+        "MLA": {
+          "final_loss": 10.379,
+          "throughput": 144827,
+          "params_m": 193.9
+        }
+      },
+      "best_variant": "MLA",
+      "recommendation": "Use MLA for production - highest throughput with smallest parameter count"
+    },
+    "precision": {
+      "ablation_type": "precision",
+      "variants": {
+        "BF16": {
+          "final_loss": 10.379,
+          "throughput": 144084,
+          "stable": true
+        },
+        "FP16": {
+          "final_loss": NaN,
+          "throughput": 140144,
+          "stable": false
+        }
+      },
+      "best_variant": "BF16",
+      "recommendation": "Use BF16 exclusively - FP16 diverges to NaN without loss scaling"
+    },
+    "mtp_depth": {
+      "ablation_type": "mtp_depth",
+      "variants": {
+        "D0": {
+          "final_loss": 10.38,
+          "throughput": 141784,
+          "params_m": 216.7
+        },
+        "D1": {
+          "final_loss": 11.417,
+          "throughput": 140725,
+          "params_m": 249.5
+        },
+        "D2": {
+          "final_loss": 12.454,
+          "throughput": 138294,
+          "params_m": 282.3
+        }
+      },
+      "best_variant": "D0",
+      "recommendation": "Use D1 or D2 if MTP improves downstream tasks; D0 for lowest training loss"
+    }
+  },
+  "summary": {
+    "total_models_trained": 6,
+    "best_model": "rust/256M",
+    "best_loss": 10.374,
+    "best_throughput": 509920,
+    "pytorch_vs_rust": {
+      "tiny": {
+        "pytorch_throughput": 267000,
+        "rust_throughput": 509920,
+        "rust_speedup": 1.909812734082397,
+        "pytorch_loss": 10.424,
+        "rust_loss": 10.4,
+        "loss_difference": 0.023999999999999133
+      },
+      "256M": {
+        "pytorch_throughput": 137000,
+        "rust_throughput": 93312,
+        "rust_speedup": 0.6811094890510949,
+        "pytorch_loss": 10.382,
+        "rust_loss": 10.374,
+        "loss_difference": 0.007999999999999119
+      },
+      "512M": {
+        "pytorch_throughput": 14700,
+        "rust_throughput": 22198,
+        "rust_speedup": 1.5100680272108844,
+        "pytorch_loss": 10.38,
+        "rust_loss": 10.374,
+        "loss_difference": 0.006000000000000227
+      }
+    }
+  }
+}

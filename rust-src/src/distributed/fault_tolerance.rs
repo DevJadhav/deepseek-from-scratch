@@ -6,6 +6,12 @@
 //! - Preemption handling for spot instances
 //! - Graceful degradation on failures
 //! - Automatic recovery mechanisms
+//! - RetryManager with exponential backoff (F1)
+//! - NaN loss detection and rollback (F6)
+//! - Checkpoint validation (F7)
+//! - Health check HTTP endpoint (F8)
+//! - Cross-backend coordination (F9)
+//! - Retry budget tracking (F10)
 //!
 //! Reference: TorchElastic-style fault tolerance for Rust training.
 
@@ -14,6 +20,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock, atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering}};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::thread::{self, JoinHandle};
+use std::path::Path;
+use std::fs;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 
 // ============================================================================
 // Elastic Training Configuration
@@ -882,6 +892,651 @@ impl FailureInjector {
 }
 
 // ============================================================================
+// F1: RetryManager with Exponential Backoff
+// ============================================================================
+
+/// Types of failures that can occur during training.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FailureType {
+    /// Out of memory
+    Oom,
+    /// NaN or Inf loss
+    NanLoss,
+    /// Loss divergence (too high)
+    Divergence,
+    /// Timeout
+    Timeout,
+    /// Network error
+    Network,
+    /// Preemption
+    Preemption,
+    /// Corrupt checkpoint
+    CheckpointCorrupt,
+    /// Unknown error
+    Unknown,
+}
+
+/// Record of a training failure.
+#[derive(Clone, Debug)]
+pub struct FailureRecord {
+    pub failure_type: FailureType,
+    pub timestamp: u64,
+    pub step: u64,
+    pub loss: Option<f64>,
+    pub error_message: String,
+    pub backend: String,
+    pub rank: usize,
+}
+
+impl FailureRecord {
+    pub fn new(
+        failure_type: FailureType,
+        step: u64,
+        loss: Option<f64>,
+        error_message: &str,
+        backend: &str,
+        rank: usize,
+    ) -> Self {
+        Self {
+            failure_type,
+            timestamp: current_time_millis(),
+            step,
+            loss,
+            error_message: error_message.to_string(),
+            backend: backend.to_string(),
+            rank,
+        }
+    }
+}
+
+/// Retry manager with exponential backoff (F1).
+pub struct RetryManager {
+    /// Maximum retry attempts
+    max_attempts: usize,
+    /// Base delay in milliseconds
+    base_delay_ms: u64,
+    /// Maximum delay in milliseconds
+    max_delay_ms: u64,
+    /// Backoff factor
+    backoff_factor: f64,
+    /// Current attempt count
+    attempt_count: AtomicUsize,
+    /// Failure history
+    failure_history: Mutex<Vec<FailureRecord>>,
+    /// Total retry time in milliseconds
+    total_retry_time_ms: AtomicU64,
+}
+
+impl RetryManager {
+    pub fn new(max_attempts: usize) -> Self {
+        Self {
+            max_attempts,
+            base_delay_ms: 1000,
+            max_delay_ms: 60000,
+            backoff_factor: 2.0,
+            attempt_count: AtomicUsize::new(0),
+            failure_history: Mutex::new(Vec::new()),
+            total_retry_time_ms: AtomicU64::new(0),
+        }
+    }
+    
+    pub fn with_delays(mut self, base_ms: u64, max_ms: u64, factor: f64) -> Self {
+        self.base_delay_ms = base_ms;
+        self.max_delay_ms = max_ms;
+        self.backoff_factor = factor;
+        self
+    }
+    
+    /// Check if should retry after failure.
+    pub fn should_retry(&self, error: &str, step: u64, loss: Option<f64>) -> bool {
+        let attempt = self.attempt_count.fetch_add(1, Ordering::SeqCst) + 1;
+        
+        // Classify and record failure
+        let failure_type = self.classify_failure(error, loss);
+        let record = FailureRecord::new(
+            failure_type.clone(),
+            step,
+            loss,
+            error,
+            "rust",
+            0,
+        );
+        self.failure_history.lock().unwrap().push(record);
+        
+        // Don't retry fatal errors
+        if matches!(failure_type, FailureType::CheckpointCorrupt) {
+            return false;
+        }
+        
+        attempt < self.max_attempts
+    }
+    
+    /// Get delay before next retry using exponential backoff.
+    pub fn get_retry_delay(&self) -> Duration {
+        let attempt = self.attempt_count.load(Ordering::SeqCst);
+        let delay = (self.base_delay_ms as f64) * self.backoff_factor.powi(attempt as i32 - 1);
+        let delay_ms = (delay as u64).min(self.max_delay_ms);
+        
+        self.total_retry_time_ms.fetch_add(delay_ms, Ordering::SeqCst);
+        Duration::from_millis(delay_ms)
+    }
+    
+    /// Classify failure type from error message.
+    fn classify_failure(&self, error: &str, loss: Option<f64>) -> FailureType {
+        let error_lower = error.to_lowercase();
+        
+        // Check loss first
+        if let Some(l) = loss {
+            if l.is_nan() || l.is_infinite() {
+                return FailureType::NanLoss;
+            }
+            if l > 100.0 {
+                return FailureType::Divergence;
+            }
+        }
+        
+        if error_lower.contains("out of memory") || error_lower.contains("oom") {
+            FailureType::Oom
+        } else if error_lower.contains("nan") || error_lower.contains("inf") {
+            FailureType::NanLoss
+        } else if error_lower.contains("timeout") || error_lower.contains("timed out") {
+            FailureType::Timeout
+        } else if error_lower.contains("connection") || error_lower.contains("network") {
+            FailureType::Network
+        } else if error_lower.contains("checkpoint") && error_lower.contains("corrupt") {
+            FailureType::CheckpointCorrupt
+        } else {
+            FailureType::Unknown
+        }
+    }
+    
+    /// Execute function with retry logic.
+    pub fn execute_with_retry<F, T, E>(&self, mut f: F, step: u64) -> std::result::Result<T, E>
+    where
+        F: FnMut() -> std::result::Result<T, E>,
+        E: std::fmt::Display,
+    {
+        loop {
+            match f() {
+                Ok(result) => {
+                    self.attempt_count.store(0, Ordering::SeqCst);
+                    return Ok(result);
+                }
+                Err(e) => {
+                    let error_str = e.to_string();
+                    if !self.should_retry(&error_str, step, None) {
+                        return Err(e);
+                    }
+                    
+                    let delay = self.get_retry_delay();
+                    thread::sleep(delay);
+                }
+            }
+        }
+    }
+    
+    /// Get statistics.
+    pub fn stats(&self) -> (usize, usize, u64) {
+        (
+            self.attempt_count.load(Ordering::SeqCst),
+            self.failure_history.lock().unwrap().len(),
+            self.total_retry_time_ms.load(Ordering::SeqCst),
+        )
+    }
+    
+    /// Reset state.
+    pub fn reset(&self) {
+        self.attempt_count.store(0, Ordering::SeqCst);
+        self.failure_history.lock().unwrap().clear();
+        self.total_retry_time_ms.store(0, Ordering::SeqCst);
+    }
+}
+
+// ============================================================================
+// F6: NaN Loss Detection and Rollback
+// ============================================================================
+
+/// NaN loss detector with rollback capability (F6).
+pub struct NaNLossDetector {
+    /// Loss threshold for divergence warning
+    loss_threshold: f64,
+    /// Number of consecutive NaN before rollback
+    nan_streak_limit: usize,
+    /// Current NaN streak
+    nan_streak: AtomicUsize,
+    /// Last valid loss
+    last_valid_loss: Mutex<Option<f64>>,
+    /// Last valid checkpoint path
+    last_valid_checkpoint: Mutex<Option<String>>,
+    /// Loss history
+    loss_history: Mutex<Vec<(u64, f64)>>,
+}
+
+impl NaNLossDetector {
+    pub fn new(loss_threshold: f64, nan_streak_limit: usize) -> Self {
+        Self {
+            loss_threshold,
+            nan_streak_limit,
+            nan_streak: AtomicUsize::new(0),
+            last_valid_loss: Mutex::new(None),
+            last_valid_checkpoint: Mutex::new(None),
+            loss_history: Mutex::new(Vec::new()),
+        }
+    }
+    
+    /// Check loss value and return action needed.
+    /// Returns (is_valid, action) where action is "none", "warn", or "rollback".
+    pub fn check_loss(&self, loss: f64, step: u64) -> (bool, &'static str) {
+        // Check for NaN/Inf
+        if loss.is_nan() || loss.is_infinite() {
+            let streak = self.nan_streak.fetch_add(1, Ordering::SeqCst) + 1;
+            
+            if streak >= self.nan_streak_limit {
+                return (false, "rollback");
+            }
+            return (false, "warn");
+        }
+        
+        // Check for divergence
+        if loss > self.loss_threshold {
+            return (false, "warn");
+        }
+        
+        // Valid loss - reset streak and update tracking
+        self.nan_streak.store(0, Ordering::SeqCst);
+        *self.last_valid_loss.lock().unwrap() = Some(loss);
+        
+        let mut history = self.loss_history.lock().unwrap();
+        history.push((step, loss));
+        if history.len() > 1000 {
+            *history = history.split_off(500);
+        }
+        
+        (true, "none")
+    }
+    
+    /// Set valid checkpoint for potential rollback.
+    pub fn set_valid_checkpoint(&self, path: &str) {
+        *self.last_valid_checkpoint.lock().unwrap() = Some(path.to_string());
+    }
+    
+    /// Get checkpoint path for rollback.
+    pub fn get_rollback_checkpoint(&self) -> Option<String> {
+        self.last_valid_checkpoint.lock().unwrap().clone()
+    }
+    
+    /// Reset detector state.
+    pub fn reset(&self) {
+        self.nan_streak.store(0, Ordering::SeqCst);
+        self.loss_history.lock().unwrap().clear();
+    }
+}
+
+// ============================================================================
+// F7: Checkpoint Validation
+// ============================================================================
+
+/// Checkpoint validator (F7).
+pub struct CheckpointValidator;
+
+impl CheckpointValidator {
+    /// Find latest checkpoint in directory.
+    pub fn find_latest_checkpoint(dir: &str) -> Option<String> {
+        let path = Path::new(dir);
+        if !path.exists() {
+            return None;
+        }
+        
+        let mut checkpoints: Vec<_> = fs::read_dir(path)
+            .ok()?
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                let name = entry.file_name().to_string_lossy().to_string();
+                (name.starts_with("step_") || name.starts_with("checkpoint_"))
+                    && (name.ends_with(".safetensors") || name.ends_with(".pt") || name.ends_with(".bin"))
+            })
+            .collect();
+        
+        if checkpoints.is_empty() {
+            return None;
+        }
+        
+        // Sort by step number
+        checkpoints.sort_by_key(|entry| {
+            let name = entry.file_name().to_string_lossy().to_string();
+            Self::extract_step(&name).unwrap_or(0)
+        });
+        
+        checkpoints.last().map(|e| e.path().to_string_lossy().to_string())
+    }
+    
+    /// Extract step number from checkpoint filename.
+    fn extract_step(name: &str) -> Option<u64> {
+        let name = name.replace("checkpoint_", "").replace("step_", "");
+        name.split('_')
+            .next()
+            .and_then(|s| s.split('.').next())
+            .and_then(|s| s.parse().ok())
+    }
+    
+    /// Validate checkpoint file exists and has content.
+    pub fn validate_checkpoint(path: &str) -> (bool, String) {
+        let path = Path::new(path);
+        
+        if !path.exists() {
+            return (false, "Checkpoint file does not exist".to_string());
+        }
+        
+        match fs::metadata(path) {
+            Ok(meta) => {
+                if meta.len() == 0 {
+                    return (false, "Checkpoint file is empty".to_string());
+                }
+                
+                // Basic format validation
+                let name = path.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                    
+                if name.ends_with(".safetensors") {
+                    // Try to read safetensors header
+                    match fs::File::open(path) {
+                        Ok(mut file) => {
+                            let mut header_size = [0u8; 8];
+                            if file.read_exact(&mut header_size).is_ok() {
+                                (true, String::new())
+                            } else {
+                                (false, "Cannot read safetensors header".to_string())
+                            }
+                        }
+                        Err(e) => (false, format!("Cannot open file: {}", e)),
+                    }
+                } else {
+                    // For .pt/.bin files, just check it's not empty
+                    (true, String::new())
+                }
+            }
+            Err(e) => (false, format!("Cannot read file metadata: {}", e)),
+        }
+    }
+}
+
+// ============================================================================
+// F8: Health Check HTTP Endpoint
+// ============================================================================
+
+/// Training status for health endpoint.
+#[derive(Clone, Debug)]
+pub struct TrainingStatus {
+    pub status: String,
+    pub step: u64,
+    pub loss: Option<f64>,
+    pub uptime_secs: u64,
+    pub retry_count: usize,
+    pub backend: String,
+}
+
+impl Default for TrainingStatus {
+    fn default() -> Self {
+        Self {
+            status: "unknown".to_string(),
+            step: 0,
+            loss: None,
+            uptime_secs: 0,
+            retry_count: 0,
+            backend: "rust".to_string(),
+        }
+    }
+}
+
+/// Simple HTTP health check server (F8).
+pub struct HealthCheckServer {
+    port: u16,
+    status: Arc<RwLock<TrainingStatus>>,
+    running: Arc<AtomicBool>,
+    start_time: Instant,
+}
+
+impl HealthCheckServer {
+    pub fn new(port: u16) -> Self {
+        Self {
+            port,
+            status: Arc::new(RwLock::new(TrainingStatus::default())),
+            running: Arc::new(AtomicBool::new(false)),
+            start_time: Instant::now(),
+        }
+    }
+    
+    /// Start the health check server in background.
+    pub fn start(&self) -> Option<JoinHandle<()>> {
+        let listener = match TcpListener::bind(format!("0.0.0.0:{}", self.port)) {
+            Ok(l) => {
+                // Set non-blocking for responsive shutdown
+                let _ = l.set_nonblocking(true);
+                l
+            },
+            Err(_) => return None,
+        };
+        
+        self.running.store(true, Ordering::SeqCst);
+        let running = self.running.clone();
+        let status = self.status.clone();
+        let start_time = self.start_time;
+        
+        Some(thread::spawn(move || {
+            while running.load(Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let status = status.read().unwrap();
+                        let uptime = start_time.elapsed().as_secs();
+                        
+                        let response_body = format!(
+                            r#"{{"status":"{}","step":{},"loss":{},"uptime_secs":{},"retry_count":{},"backend":"{}","timestamp":{}}}"#,
+                            status.status,
+                            status.step,
+                            status.loss.map(|l| l.to_string()).unwrap_or("null".to_string()),
+                            uptime,
+                            status.retry_count,
+                            status.backend,
+                            current_time_millis()
+                        );
+                        
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                            response_body.len(),
+                            response_body
+                        );
+                        
+                        let _ = stream.write_all(response.as_bytes());
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        // No connection, sleep briefly
+                        thread::sleep(Duration::from_millis(100));
+                    }
+                    Err(_) => break,
+                }
+            }
+        }))
+    }
+    
+    /// Stop the server.
+    pub fn stop(&self) {
+        self.running.store(false, Ordering::SeqCst);
+    }
+    
+    /// Update status.
+    pub fn update_status(&self, status: &str, step: u64, loss: Option<f64>, retry_count: usize) {
+        let mut s = self.status.write().unwrap();
+        s.status = status.to_string();
+        s.step = step;
+        s.loss = loss;
+        s.retry_count = retry_count;
+        s.uptime_secs = self.start_time.elapsed().as_secs();
+    }
+}
+
+// ============================================================================
+// F9: Cross-Backend Coordination
+// ============================================================================
+
+/// Cross-backend coordinator for handling failures across PyTorch/Rust (F9).
+pub struct CrossBackendCoordinator {
+    backends: Vec<String>,
+    status: RwLock<HashMap<String, String>>,
+    steps: RwLock<HashMap<String, u64>>,
+    failed: RwLock<Vec<String>>,
+    checkpoint_dir: String,
+}
+
+impl CrossBackendCoordinator {
+    pub fn new(backends: Vec<String>, checkpoint_dir: &str) -> Self {
+        let status: HashMap<String, String> = backends.iter()
+            .map(|b| (b.clone(), "unknown".to_string()))
+            .collect();
+        let steps: HashMap<String, u64> = backends.iter()
+            .map(|b| (b.clone(), 0))
+            .collect();
+        
+        Self {
+            backends,
+            status: RwLock::new(status),
+            steps: RwLock::new(steps),
+            failed: RwLock::new(Vec::new()),
+            checkpoint_dir: checkpoint_dir.to_string(),
+        }
+    }
+    
+    /// Report status from a backend.
+    pub fn report_status(&self, backend: &str, status: &str, step: u64) {
+        self.status.write().unwrap().insert(backend.to_string(), status.to_string());
+        self.steps.write().unwrap().insert(backend.to_string(), step);
+        
+        if status == "failed" {
+            let mut failed = self.failed.write().unwrap();
+            if !failed.contains(&backend.to_string()) {
+                failed.push(backend.to_string());
+            }
+        }
+    }
+    
+    /// Check if training can continue with remaining backends.
+    pub fn can_continue(&self) -> bool {
+        let status = self.status.read().unwrap();
+        status.values().any(|s| s != "failed" && s != "terminated")
+    }
+    
+    /// Get healthy backends.
+    pub fn get_healthy_backends(&self) -> Vec<String> {
+        let status = self.status.read().unwrap();
+        status.iter()
+            .filter(|(_, s)| *s != "failed" && *s != "terminated")
+            .map(|(b, _)| b.clone())
+            .collect()
+    }
+    
+    /// Find checkpoint from a healthy backend.
+    pub fn sync_checkpoint_from_healthy(&self, failed_backend: &str) -> Option<String> {
+        let healthy = self.get_healthy_backends();
+        if healthy.is_empty() {
+            return None;
+        }
+        
+        let mut best_checkpoint: Option<String> = None;
+        let mut best_step = 0u64;
+        
+        for backend in healthy {
+            let dir = format!("{}/{}", self.checkpoint_dir, backend);
+            if let Some(checkpoint) = CheckpointValidator::find_latest_checkpoint(&dir) {
+                if let Some(step) = CheckpointValidator::extract_step(&checkpoint) {
+                    if step > best_step {
+                        best_step = step;
+                        best_checkpoint = Some(checkpoint);
+                    }
+                }
+            }
+        }
+        
+        best_checkpoint
+    }
+}
+
+// ============================================================================
+// F10: Retry Budget Tracking
+// ============================================================================
+
+/// Retry budget tracker (F10).
+pub struct RetryBudgetTracker {
+    /// Maximum cost allowed for retries
+    max_retry_cost: f64,
+    /// Total retry cost so far
+    total_retry_cost: AtomicU64, // Stored as cents to avoid float atomics
+    /// Cost per GPU hour
+    cost_per_gpu_hour: f64,
+    /// GPU count
+    gpu_count: usize,
+    /// Retry start time
+    retry_start: Mutex<Option<Instant>>,
+    /// Retry history
+    retry_history: Mutex<Vec<(Duration, f64, bool)>>, // duration, cost, success
+}
+
+impl RetryBudgetTracker {
+    pub fn new(max_retry_cost: f64, cost_per_gpu_hour: f64, gpu_count: usize) -> Self {
+        Self {
+            max_retry_cost,
+            total_retry_cost: AtomicU64::new(0),
+            cost_per_gpu_hour,
+            gpu_count,
+            retry_start: Mutex::new(None),
+            retry_history: Mutex::new(Vec::new()),
+        }
+    }
+    
+    /// Mark start of a retry attempt.
+    pub fn start_retry(&self) {
+        *self.retry_start.lock().unwrap() = Some(Instant::now());
+    }
+    
+    /// Mark end of retry and calculate cost.
+    pub fn end_retry(&self, success: bool) -> f64 {
+        let start = self.retry_start.lock().unwrap().take();
+        let duration = start.map(|s| s.elapsed()).unwrap_or_default();
+        
+        let hours = duration.as_secs_f64() / 3600.0;
+        let cost = hours * self.cost_per_gpu_hour * self.gpu_count as f64;
+        
+        // Store as cents
+        let cost_cents = (cost * 100.0) as u64;
+        self.total_retry_cost.fetch_add(cost_cents, Ordering::SeqCst);
+        
+        self.retry_history.lock().unwrap().push((duration, cost, success));
+        
+        cost
+    }
+    
+    /// Check if we can afford another retry.
+    pub fn can_afford_retry(&self) -> bool {
+        let total = self.total_retry_cost.load(Ordering::SeqCst) as f64 / 100.0;
+        total < self.max_retry_cost
+    }
+    
+    /// Get total retry cost.
+    pub fn total_cost(&self) -> f64 {
+        self.total_retry_cost.load(Ordering::SeqCst) as f64 / 100.0
+    }
+    
+    /// Get remaining budget.
+    pub fn remaining_budget(&self) -> f64 {
+        self.max_retry_cost - self.total_cost()
+    }
+    
+    /// Get retry count.
+    pub fn retry_count(&self) -> usize {
+        self.retry_history.lock().unwrap().len()
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1031,5 +1686,213 @@ mod tests {
         degradation.handle_recovery(1);
         let action = degradation.handle_failure(1);
         assert!(matches!(action, FailureAction::ContinueWithLess { .. }));
+    }
+    
+    // ========================================================================
+    // F1: RetryManager Tests
+    // ========================================================================
+    
+    #[test]
+    fn test_retry_manager_creation() {
+        let manager = RetryManager::new(3);
+        assert_eq!(manager.max_attempts, 3);
+        let (attempts, failures, _) = manager.stats();
+        assert_eq!(attempts, 0);
+        assert_eq!(failures, 0);
+    }
+    
+    #[test]
+    fn test_retry_manager_should_retry() {
+        let manager = RetryManager::new(3);
+        
+        // First retry should be allowed
+        assert!(manager.should_retry("some error", 100, None));
+        assert!(manager.should_retry("another error", 101, None));
+        
+        // Third retry should not be allowed (at max)
+        assert!(!manager.should_retry("third error", 102, None));
+    }
+    
+    #[test]
+    fn test_retry_manager_exponential_backoff() {
+        let manager = RetryManager::new(5)
+            .with_delays(1000, 60000, 2.0);
+        
+        manager.attempt_count.store(1, Ordering::SeqCst);
+        let delay1 = manager.get_retry_delay();
+        assert_eq!(delay1.as_millis(), 1000);
+        
+        manager.attempt_count.store(2, Ordering::SeqCst);
+        let delay2 = manager.get_retry_delay();
+        assert_eq!(delay2.as_millis(), 2000);
+        
+        manager.attempt_count.store(3, Ordering::SeqCst);
+        let delay3 = manager.get_retry_delay();
+        assert_eq!(delay3.as_millis(), 4000);
+    }
+    
+    #[test]
+    fn test_retry_manager_failure_classification() {
+        let manager = RetryManager::new(3);
+        
+        assert_eq!(
+            manager.classify_failure("CUDA out of memory", None),
+            FailureType::Oom
+        );
+        assert_eq!(
+            manager.classify_failure("connection timeout", None),
+            FailureType::Timeout
+        );
+        assert_eq!(
+            manager.classify_failure("network error", None),
+            FailureType::Network
+        );
+        assert_eq!(
+            manager.classify_failure("", Some(f64::NAN)),
+            FailureType::NanLoss
+        );
+        assert_eq!(
+            manager.classify_failure("", Some(200.0)),
+            FailureType::Divergence
+        );
+    }
+    
+    // ========================================================================
+    // F6: NaNLossDetector Tests
+    // ========================================================================
+    
+    #[test]
+    fn test_nan_detector_valid_loss() {
+        let detector = NaNLossDetector::new(100.0, 3);
+        
+        let (valid, action) = detector.check_loss(1.5, 100);
+        assert!(valid);
+        assert_eq!(action, "none");
+    }
+    
+    #[test]
+    fn test_nan_detector_nan_loss() {
+        let detector = NaNLossDetector::new(100.0, 3);
+        
+        let (valid, action) = detector.check_loss(f64::NAN, 100);
+        assert!(!valid);
+        assert_eq!(action, "warn");
+    }
+    
+    #[test]
+    fn test_nan_detector_streak_rollback() {
+        let detector = NaNLossDetector::new(100.0, 3);
+        
+        detector.check_loss(f64::NAN, 100);
+        detector.check_loss(f64::NAN, 101);
+        let (valid, action) = detector.check_loss(f64::NAN, 102);
+        
+        assert!(!valid);
+        assert_eq!(action, "rollback");
+    }
+    
+    #[test]
+    fn test_nan_detector_streak_reset() {
+        let detector = NaNLossDetector::new(100.0, 3);
+        
+        detector.check_loss(f64::NAN, 100);
+        detector.check_loss(f64::NAN, 101);
+        detector.check_loss(1.0, 102); // Valid loss resets streak
+        
+        let (_, action) = detector.check_loss(f64::NAN, 103);
+        assert_eq!(action, "warn"); // Back to warn, not rollback
+    }
+    
+    #[test]
+    fn test_nan_detector_checkpoint() {
+        let detector = NaNLossDetector::new(100.0, 3);
+        
+        detector.set_valid_checkpoint("/checkpoints/step_100.pt");
+        assert_eq!(
+            detector.get_rollback_checkpoint(),
+            Some("/checkpoints/step_100.pt".to_string())
+        );
+    }
+    
+    // ========================================================================
+    // F9: CrossBackendCoordinator Tests
+    // ========================================================================
+    
+    #[test]
+    fn test_cross_backend_coordinator() {
+        let coordinator = CrossBackendCoordinator::new(
+            vec!["pytorch".to_string(), "rust".to_string()],
+            "/checkpoints",
+        );
+        
+        coordinator.report_status("pytorch", "running", 100);
+        coordinator.report_status("rust", "running", 150);
+        
+        assert!(coordinator.can_continue());
+        assert_eq!(coordinator.get_healthy_backends().len(), 2);
+    }
+    
+    #[test]
+    fn test_cross_backend_one_failed() {
+        let coordinator = CrossBackendCoordinator::new(
+            vec!["pytorch".to_string(), "rust".to_string()],
+            "/checkpoints",
+        );
+        
+        coordinator.report_status("pytorch", "running", 100);
+        coordinator.report_status("rust", "failed", 50);
+        
+        assert!(coordinator.can_continue());
+        let healthy = coordinator.get_healthy_backends();
+        assert_eq!(healthy.len(), 1);
+        assert!(healthy.contains(&"pytorch".to_string()));
+    }
+    
+    #[test]
+    fn test_cross_backend_all_failed() {
+        let coordinator = CrossBackendCoordinator::new(
+            vec!["pytorch".to_string(), "rust".to_string()],
+            "/checkpoints",
+        );
+        
+        coordinator.report_status("pytorch", "failed", 100);
+        coordinator.report_status("rust", "failed", 50);
+        
+        assert!(!coordinator.can_continue());
+    }
+    
+    // ========================================================================
+    // F10: RetryBudgetTracker Tests
+    // ========================================================================
+    
+    #[test]
+    fn test_retry_budget_tracker() {
+        let tracker = RetryBudgetTracker::new(50.0, 2.78, 1);
+        
+        assert!(tracker.can_afford_retry());
+        assert_eq!(tracker.remaining_budget(), 50.0);
+    }
+    
+    #[test]
+    fn test_retry_budget_tracking() {
+        let tracker = RetryBudgetTracker::new(100.0, 2.78, 1);
+        
+        tracker.start_retry();
+        std::thread::sleep(Duration::from_millis(10));
+        let cost = tracker.end_retry(true);
+        
+        assert!(cost > 0.0);
+        assert!(cost < 1.0); // Very small cost for 10ms
+        assert_eq!(tracker.retry_count(), 1);
+    }
+    
+    #[test]
+    fn test_retry_budget_exhausted() {
+        let tracker = RetryBudgetTracker::new(0.001, 2.78, 1);
+        
+        // Simulate exhausting budget
+        tracker.total_retry_cost.store(100, Ordering::SeqCst); // 1 dollar
+        
+        assert!(!tracker.can_afford_retry());
     }
 }

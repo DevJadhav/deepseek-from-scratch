@@ -3,11 +3,11 @@
 Cost Tracker for DeepSeek Training Pipeline.
 
 Tracks GPU usage, calculates costs, and manages budget alerts for
-training runs on Modal H100 GPUs.
+training runs on Modal A100-80GB GPUs.
 
 Features:
 - GPU-hour accumulation per stage
-- Real-time cost calculation ($3.95/hr H100)
+- Real-time cost calculation ($2.50/hr A100-80GB)
 - Budget threshold alerts (50%, 75%, 90%, 95%)
 - Persist to JSON for recovery
 - Historical cost tracking
@@ -39,11 +39,11 @@ from typing import Any
 
 
 class GPUType(Enum):
-    """Supported GPU types with hourly rates."""
+    """Supported GPU types with hourly rates (Modal pricing)."""
 
     H100 = 3.95
-    A100_80GB = 2.78
-    A100_40GB = 2.21
+    A100_80GB = 2.50  # Modal A100-80GB pricing
+    A100_40GB = 2.10
     A10G = 1.10
     T4 = 0.76
     # Apple Silicon (estimated cloud rates)

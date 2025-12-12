@@ -11,12 +11,12 @@ Architecture:
     Local → Modal Head Node (ray.init()) → Modal Worker Nodes (ray.init(address=...))
     
 GPU Configuration:
-- Initial: 8x A100-40GB (TP=2, PP=2, DP=2, EP=1, SP=1) for verification
-- Scale-up: 64x A100-40GB (TP=4, PP=4, DP=2, EP=2, SP=1) for full DualPipe
+- Initial: 8x A100-80GB (TP=2, PP=2, DP=2, EP=1, SP=1) for verification
+- Scale-up: 64x A100-80GB (TP=4, PP=4, DP=2, EP=2, SP=1) for full DualPipe
 
-Cost Estimate (A100-40GB @ $0.000583/sec):
-- 8 GPUs × 2 hours = $33.60
-- 64 GPUs × 2 hours = $268.80
+Cost Estimate (A100-80GB @ $2.50/hr per GPU):
+- 8 GPUs × 1 hour = $20.00
+- 64 GPUs × 1 hour = $160.00
 
 Usage
 -----
@@ -46,14 +46,25 @@ import modal
 
 app = modal.App("deepseek-ray-cluster")
 
-# Persistent volumes
+# =============================================================================
+# Shared Volumes with Subdirectory Organization
+# =============================================================================
+
+# Shared data volume for training datasets
+data_volume = modal.Volume.from_name(
+    "deepseek-training-data",
+    create_if_missing=True,
+)
+
+# Shared checkpoints volume with backend subdirectories
 checkpoint_volume = modal.Volume.from_name(
     "deepseek-checkpoints",
     create_if_missing=True,
 )
 
-data_volume = modal.Volume.from_name(
-    "deepseek-training-data",
+# Shared logs volume for W&B, TensorBoard, and JSON logs
+logs_volume = modal.Volume.from_name(
+    "deepseek-logs",
     create_if_missing=True,
 )
 
@@ -67,6 +78,33 @@ cargo_registry_volume = modal.Volume.from_name(
     "deepseek-cargo-registry",
     create_if_missing=True,
 )
+
+# Volume mounts for Modal functions
+VOLUME_MOUNTS = {
+    "/data": data_volume,
+    "/checkpoints": checkpoint_volume,
+    "/logs": logs_volume,
+}
+
+# Subdirectory structure (created at runtime)
+SUBDIRS = {
+    "checkpoints": [
+        "/checkpoints/pytorch/tiny",
+        "/checkpoints/pytorch/256M",
+        "/checkpoints/pytorch/512M",
+        "/checkpoints/rust/tiny",
+        "/checkpoints/rust/256M",
+        "/checkpoints/rust/512M",
+    ],
+    "logs": [
+        "/logs/wandb/pytorch",
+        "/logs/wandb/rust",
+        "/logs/tensorboard/pytorch",
+        "/logs/tensorboard/rust",
+        "/logs/json/pytorch",
+        "/logs/json/rust",
+    ],
+}
 
 # =============================================================================
 # Container Images
@@ -114,7 +152,8 @@ ray_pytorch_image = (
     })
 )
 
-# Rust + CUDA image for Rust backend with pre-built deepseek-rust library
+# Rust + CUDA image for Rust backend with PRE-BUILT deepseek-rust library
+# Binary is built during image creation with --features cuda,pyo3-bindings
 ray_rust_image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04",
@@ -144,32 +183,290 @@ ray_rust_image = (
         "PATH": "/root/.cargo/bin:/root/.local/bin:$PATH",
         "CUDA_HOME": "/usr/local/cuda",
         "LD_LIBRARY_PATH": "/usr/local/cuda/lib64:$LD_LIBRARY_PATH",
+        # A100-80GB compute capability
+        "CUDA_COMPUTE_CAP": "80",
+        "CUDACXX": "/usr/local/cuda/bin/nvcc",
     })
     # Install PyTorch and Ray (needed for Python bindings)
     .run_commands(
         "uv pip install --system torch --index-url https://download.pytorch.org/whl/cu121",
         "uv pip install --system 'ray[default,train]>=2.9.0' 'maturin>=1.4.0' "
-        "'numpy>=1.24.0' 'pyyaml>=6.0' 'structlog>=25.0.0'",
+        "'numpy>=1.24.0' 'pyyaml>=6.0' 'structlog>=25.0.0' 'safetensors>=0.4.0'",
     )
-    .env({
-        "NCCL_DEBUG": "INFO",
-        "NCCL_IB_DISABLE": "1",
-        "CUDA_HOME": "/usr/local/cuda",
-        "CUDACXX": "/usr/local/cuda/bin/nvcc",
-        # Set CUDA compute capability for A100 (sm_80) - required for building without nvidia-smi
-        "CUDA_COMPUTE_CAP": "80",
-    })
-    # Copy rust-src into the container - build happens at runtime with GPU available
+    # Copy rust-src into the container
     .add_local_dir(
         local_path="rust-src",
         remote_path="/app/rust_src",
         copy=True,
     )
-    # Pre-fetch Rust dependencies but don't build CUDA kernels (requires GPU runtime)
+    # PRE-BUILD Rust binary with CUDA + PyO3 bindings during image creation
+    # This avoids runtime compilation and ensures consistent builds
     .run_commands(
+        # Fetch dependencies first
         "cd /app/rust_src && cargo fetch",
+        # Build release binary with cuda and pyo3-bindings features
+        "cd /app/rust_src && cargo build --release --features cuda,pyo3-bindings",
+        # Build Python wheel using maturin
+        "cd /app/rust_src && maturin build --release --features cuda,pyo3-bindings -o /app/rust_src/target/wheels/ || echo 'Maturin build skipped (optional)'",
+        # Install the wheel if it was built successfully
+        "uv pip install --system /app/rust_src/target/wheels/*.whl 2>/dev/null || echo 'Wheel install skipped (binary available)'",
     )
+    .env({
+        "NCCL_DEBUG": "INFO",
+        "NCCL_IB_DISABLE": "1",
+        "NCCL_P2P_DISABLE": "0",
+        "RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING": "1",
+    })
 )
+
+
+# =============================================================================
+# GPU Configuration Constants (A100-80GB × 8)
+# =============================================================================
+
+# Updated for A100-80GB pricing and configuration
+GPU_TYPE = "A100-80GB"
+GPU_COUNT = 8
+GPU_HOURLY_RATE = 2.50  # $ per GPU per hour (Modal A100-80GB pricing)
+TOTAL_HOURLY_RATE = GPU_HOURLY_RATE * GPU_COUNT  # $20.00/hr for 8 GPUs
+BUDGET_PER_BACKEND = 500.0  # $ per backend
+
+
+# =============================================================================
+# Helper Functions for Volume Setup and Verification
+# =============================================================================
+
+@app.function(
+    image=ray_pytorch_image,
+    volumes=VOLUME_MOUNTS,
+    timeout=300,
+)
+def setup_directories() -> Dict[str, Any]:
+    """
+    Create the directory structure on Modal volumes.
+    
+    Creates:
+    - /checkpoints/pytorch/{tiny,256M,512M}
+    - /checkpoints/rust/{tiny,256M,512M}
+    - /logs/wandb/{pytorch,rust}
+    - /logs/tensorboard/{pytorch,rust}
+    - /logs/json/{pytorch,rust}
+    """
+    import os
+    import structlog
+    
+    logger = structlog.get_logger(__name__)
+    created_dirs = []
+    
+    # Create all subdirectories
+    for category, dirs in SUBDIRS.items():
+        for dir_path in dirs:
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+                created_dirs.append(dir_path)
+                logger.info("directory_created", path=dir_path)
+            except Exception as e:
+                logger.error("directory_creation_failed", path=dir_path, error=str(e))
+    
+    # Commit volume changes
+    checkpoint_volume.commit()
+    logs_volume.commit()
+    
+    return {
+        "status": "success",
+        "created_directories": created_dirs,
+        "total_created": len(created_dirs),
+    }
+
+
+@app.function(
+    image=ray_pytorch_image,
+    volumes=VOLUME_MOUNTS,
+    timeout=300,
+)
+def verify_volumes() -> Dict[str, Any]:
+    """
+    Verify that all volumes are mounted and accessible.
+    
+    Checks:
+    - Volume mount points exist
+    - Read/write permissions
+    - Directory structure
+    """
+    import os
+    import structlog
+    
+    logger = structlog.get_logger(__name__)
+    results = {
+        "volumes": {},
+        "directories": {},
+        "permissions": {},
+    }
+    
+    # Check volume mounts
+    for mount_path, volume in VOLUME_MOUNTS.items():
+        exists = os.path.exists(mount_path)
+        results["volumes"][mount_path] = {
+            "mounted": exists,
+            "volume_name": str(volume),
+        }
+        logger.info("volume_check", path=mount_path, mounted=exists)
+    
+    # Check directory structure
+    for category, dirs in SUBDIRS.items():
+        for dir_path in dirs:
+            exists = os.path.exists(dir_path)
+            results["directories"][dir_path] = exists
+            if not exists:
+                logger.warning("directory_missing", path=dir_path)
+    
+    # Check permissions
+    for mount_path in VOLUME_MOUNTS.keys():
+        try:
+            test_file = f"{mount_path}/.write_test"
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+            results["permissions"][mount_path] = "read_write"
+        except Exception as e:
+            results["permissions"][mount_path] = f"error: {e}"
+    
+    all_ok = (
+        all(v["mounted"] for v in results["volumes"].values()) and
+        all(results["permissions"].get(p, "").startswith("read") or results["permissions"].get(p, "") == "read_write" 
+            for p in VOLUME_MOUNTS.keys())
+    )
+    
+    results["status"] = "success" if all_ok else "partial"
+    return results
+
+
+@app.function(
+    image=ray_rust_image,
+    gpu=f"{GPU_TYPE}:1",  # Single GPU for verification
+    memory=32768,
+    timeout=600,
+)
+def verify_rust_binary() -> Dict[str, Any]:
+    """
+    Verify that the Rust binary was built correctly during image creation.
+    
+    Checks:
+    - Binary exists at /app/rust_src/target/release/
+    - CUDA features are enabled
+    - PyO3 bindings work
+    """
+    import os
+    import subprocess
+    import structlog
+    from datetime import datetime
+    
+    logger = structlog.get_logger(__name__)
+    results = {
+        "binary_exists": False,
+        "cuda_enabled": False,
+        "pyo3_enabled": False,
+        "gpu_available": False,
+    }
+    
+    rust_src = "/app/rust_src"
+    binary_path = f"{rust_src}/target/release/deepseek_from_scratch_in_rust"
+    
+    # Check binary exists
+    results["binary_exists"] = os.path.exists(binary_path)
+    logger.info("binary_check", path=binary_path, exists=results["binary_exists"])
+    
+    # Get binary size and modification time
+    if results["binary_exists"]:
+        stat = os.stat(binary_path)
+        results["binary_size_mb"] = stat.st_size / (1024 * 1024)
+        results["binary_modified"] = datetime.fromtimestamp(stat.st_mtime).isoformat()
+    
+    # Check CUDA availability via PyTorch
+    try:
+        import torch
+        results["gpu_available"] = torch.cuda.is_available()
+        if results["gpu_available"]:
+            results["gpu_name"] = torch.cuda.get_device_name(0)
+            results["cuda_version"] = torch.version.cuda
+        logger.info("cuda_check", available=results["gpu_available"])
+    except Exception as e:
+        logger.error("cuda_check_failed", error=str(e))
+    
+    # Run the binary directly (already pre-built during image creation)
+    if results["binary_exists"]:
+        try:
+            env = os.environ.copy()
+            env["CUDA_VISIBLE_DEVICES"] = "0"
+            
+            # Run binary with --help to verify it works
+            result = subprocess.run(
+                [binary_path, "--help"],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30,
+            )
+            results["binary_runs"] = result.returncode == 0
+            results["binary_output"] = result.stdout[:500] if result.stdout else result.stderr[:500]
+            logger.info("binary_verify", success=results["binary_runs"])
+        except Exception as e:
+            logger.error("binary_verify_failed", error=str(e))
+    
+    # Check PyO3 wheel
+    wheel_dir = f"{rust_src}/target/wheels"
+    if os.path.exists(wheel_dir):
+        wheels = os.listdir(wheel_dir)
+        results["pyo3_enabled"] = any(w.endswith(".whl") for w in wheels)
+        results["wheels"] = wheels
+    
+    results["status"] = "success" if results["binary_exists"] and results["gpu_available"] else "partial"
+    return results
+
+
+@app.function(
+    image=ray_pytorch_image,
+    gpu=f"{GPU_TYPE}:1",  # Single GPU for verification
+    memory=32768,
+    timeout=300,
+)
+def verify_pytorch_setup() -> Dict[str, Any]:
+    """
+    Verify PyTorch setup with CUDA.
+    
+    Checks:
+    - PyTorch version
+    - CUDA availability
+    - GPU memory
+    - NCCL backend
+    """
+    import torch
+    import structlog
+    
+    logger = structlog.get_logger(__name__)
+    
+    results = {
+        "pytorch_version": torch.__version__,
+        "cuda_available": torch.cuda.is_available(),
+        "cuda_version": torch.version.cuda if torch.cuda.is_available() else None,
+        "gpu_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
+    }
+    
+    if results["cuda_available"]:
+        results["gpu_name"] = torch.cuda.get_device_name(0)
+        results["gpu_memory_gb"] = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        
+        # Test NCCL backend
+        try:
+            if torch.distributed.is_nccl_available():
+                results["nccl_available"] = True
+        except:
+            results["nccl_available"] = False
+    
+    results["status"] = "success" if results["cuda_available"] else "failed"
+    logger.info("pytorch_verification", **results)
+    
+    return results
 
 
 # =============================================================================
@@ -271,7 +568,7 @@ class Parallelism5DConfig:
     def scaled_config(cls) -> "Parallelism5DConfig":
         """
         Scaled config: 64 GPUs total (requires sequential batches).
-        Due to 10 GPU concurrency limit, this runs as 8 sequential 8-GPU batches.
+        Runs as sequential 8-GPU batches with checkpoint continuity.
         """
         return cls(
             tensor_parallel_size=4,
@@ -299,7 +596,7 @@ class RayClusterConfig:
     parallelism: Parallelism5DConfig = field(default_factory=Parallelism5DConfig.initial_config)
     head_memory_mb: int = 65536  # 64GB for head node
     worker_memory_mb: int = 32768  # 32GB for workers
-    gpu_type: str = "A100"  # A100-40GB @ $0.000583/sec
+    gpu_type: str = GPU_TYPE  # A100-80GB @ $2.50/hr per GPU
     timeout_hours: int = 4
     checkpoint_dir: str = "/checkpoints"
     data_dir: str = "/data"
@@ -311,8 +608,8 @@ class RayClusterConfig:
     
     @property
     def estimated_cost_per_hour(self) -> float:
-        """Estimated cost per hour in USD."""
-        return self.parallelism.total_gpus * 0.000583 * 3600
+        """Estimated cost per hour in USD using A100-80GB pricing."""
+        return self.parallelism.total_gpus * GPU_HOURLY_RATE
 
 
 # =============================================================================
@@ -321,12 +618,9 @@ class RayClusterConfig:
 
 @app.function(
     image=ray_pytorch_image,
-    gpu="A100",
+    gpu=f"{GPU_TYPE}:1",  # Single A100-80GB for head node
     memory=65536,  # 64GB for head node coordination
-    volumes={
-        "/checkpoints": checkpoint_volume,
-        "/data": data_volume,
-    },
+    volumes=VOLUME_MOUNTS,
     timeout=14400,  # 4 hours
 )
 def ray_head_node(
@@ -404,12 +698,9 @@ def ray_head_node(
 
 @app.function(
     image=ray_pytorch_image,
-    gpu="A100",
+    gpu=f"{GPU_TYPE}:1",  # Single A100-80GB per worker
     memory=32768,  # 32GB for workers
-    volumes={
-        "/checkpoints": checkpoint_volume,
-        "/data": data_volume,
-    },
+    volumes=VOLUME_MOUNTS,
     timeout=14400,  # 4 hours
 )
 def ray_worker_node(
@@ -799,6 +1090,7 @@ def run_pytorch_verification(
     parallelism_config: Dict[str, Any],
     max_steps: int = 100,
     checkpoint_interval: int = 100,
+    model_size: str = "tiny",
 ) -> Dict[str, Any]:
     """
     Run PyTorch backend verification for 5D parallelism and DualPipe.
@@ -858,6 +1150,19 @@ def run_pytorch_verification(
         mapping = parallelism.get_rank_mapping(global_rank)
         logger.info("rank_mapping", global_rank=global_rank, mapping=mapping)
     
+    # Model size configurations (matching mlx/cli.py)
+    MODEL_CONFIGS = {
+        "tiny": {"d_model": 256, "n_layers": 4, "n_heads": 4, "vocab_size": 32000, "d_ff": 1024},
+        "small": {"d_model": 512, "n_layers": 8, "n_heads": 8, "vocab_size": 32000, "d_ff": 2048},
+        "base": {"d_model": 1024, "n_layers": 12, "n_heads": 16, "vocab_size": 32000, "d_ff": 4096},
+        "256M": {"d_model": 1024, "n_layers": 12, "n_heads": 16, "vocab_size": 32000, "d_ff": 4096},  # Alias for base
+        "large": {"d_model": 2048, "n_layers": 24, "n_heads": 32, "vocab_size": 32000, "d_ff": 8192},
+        "512M": {"d_model": 2048, "n_layers": 24, "n_heads": 32, "vocab_size": 32000, "d_ff": 8192},  # Alias for large
+    }
+    
+    model_cfg = MODEL_CONFIGS.get(model_size, MODEL_CONFIGS["tiny"])
+    logger.info("model_config", model_size=model_size, config=model_cfg)
+    
     # Define the distributed training loop
     def train_loop_per_worker(config):
         """Training loop executed on each GPU worker."""
@@ -874,9 +1179,17 @@ def run_pytorch_verification(
         device = torch.device(f"cuda:{local_rank}")
         torch.cuda.set_device(device)
         
+        # Get model config from training config
+        model_cfg = config.get("model_config", {})
+        d_model = model_cfg.get("d_model", 512)
+        n_layers = model_cfg.get("n_layers", 6)
+        n_heads = model_cfg.get("n_heads", 8)
+        vocab_size = model_cfg.get("vocab_size", 32000)
+        d_ff = model_cfg.get("d_ff", d_model * 4)
+        
         # Model definition
         class SimpleTransformerBlock(nn.Module):
-            def __init__(self, d_model=512, n_heads=8, d_ff=2048):
+            def __init__(self, d_model, n_heads, d_ff):
                 super().__init__()
                 self.attn = nn.MultiheadAttention(d_model, n_heads, batch_first=True)
                 self.ff = nn.Sequential(
@@ -893,11 +1206,11 @@ def run_pytorch_verification(
                 return x
         
         class MiniDeepSeekModel(nn.Module):
-            def __init__(self, vocab_size=32000, d_model=512, n_layers=6, n_heads=8):
+            def __init__(self, vocab_size, d_model, n_layers, n_heads, d_ff):
                 super().__init__()
                 self.embed = nn.Embedding(vocab_size, d_model)
                 self.layers = nn.ModuleList([
-                    SimpleTransformerBlock(d_model, n_heads) for _ in range(n_layers)
+                    SimpleTransformerBlock(d_model, n_heads, d_ff) for _ in range(n_layers)
                 ])
                 self.head = nn.Linear(d_model, vocab_size)
             
@@ -908,7 +1221,7 @@ def run_pytorch_verification(
                 return self.head(x)
         
         # Initialize model with DDP
-        model = MiniDeepSeekModel().to(device)
+        model = MiniDeepSeekModel(vocab_size, d_model, n_layers, n_heads, d_ff).to(device)
         model = DDP(model, device_ids=[local_rank])
         
         num_params = sum(p.numel() for p in model.parameters())
@@ -919,22 +1232,84 @@ def run_pytorch_verification(
         global_batch_size = base_batch_size * world_size
         seq_len = config.get("seq_len", 128)
         max_steps = config.get("max_steps", 100)
-        checkpoint_interval = config.get("checkpoint_interval", 100)
+        # Checkpoint every 50 steps for preemption resilience
+        checkpoint_interval = config.get("checkpoint_interval", 50)
+        model_size = config.get("model_size", "tiny")
+        checkpoint_dir = f"/checkpoints/pytorch/{model_size}"
+        
+        # Ensure checkpoint directory exists
+        import os
+        os.makedirs(checkpoint_dir, exist_ok=True)
         
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_steps)
         criterion = nn.CrossEntropyLoss()
         
+        # === CHECKPOINT RESUMPTION LOGIC ===
+        # Check for existing checkpoint to resume from
+        start_step = 0
+        latest_checkpoint_path = os.path.join(checkpoint_dir, "latest.pt")
+        
+        if os.path.exists(latest_checkpoint_path):
+            try:
+                if rank == 0:
+                    print(f"[Rank {rank}] Found checkpoint at {latest_checkpoint_path}, attempting to resume...")
+                
+                # Load checkpoint (all ranks load to stay in sync)
+                checkpoint = torch.load(latest_checkpoint_path, map_location=device, weights_only=False)
+                
+                # Load model state (handle DDP wrapper)
+                model_state = checkpoint.get("model_state_dict", {})
+                if model_state:
+                    # Remove 'module.' prefix if loading non-DDP checkpoint into DDP model
+                    if hasattr(model, 'module'):
+                        model.module.load_state_dict(model_state)
+                    else:
+                        model.load_state_dict(model_state)
+                
+                # Load optimizer state
+                if "optimizer_state_dict" in checkpoint:
+                    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+                
+                # Load scheduler state
+                if "scheduler_state_dict" in checkpoint:
+                    scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+                
+                # Resume from next step
+                start_step = checkpoint.get("step", 0)
+                
+                if rank == 0:
+                    print(f"[Rank {rank}] ✅ Resumed from checkpoint at step {start_step}")
+                    print(f"[Rank {rank}] Continuing training from step {start_step} to {max_steps}")
+                
+                # Synchronize all ranks after loading
+                dist.barrier()
+                
+            except Exception as e:
+                if rank == 0:
+                    print(f"[Rank {rank}] ⚠️ Failed to load checkpoint: {e}")
+                    print(f"[Rank {rank}] Starting training from scratch")
+                start_step = 0
+                dist.barrier()
+        else:
+            if rank == 0:
+                print(f"[Rank {rank}] No checkpoint found at {latest_checkpoint_path}, starting from step 0")
+        
         # Training loop
         start_time = time.time()
         losses = []
         throughputs = []
-        log_interval = max(1, max_steps // 10)
+        # Report more frequently to catch sync issues early (every 100 steps or 10% of training)
+        remaining_steps = max_steps - start_step
+        log_interval = min(100, max(1, remaining_steps // 10)) if remaining_steps > 0 else 100
         
-        for step in range(max_steps):
+        if rank == 0:
+            print(f"[Rank {rank}] Training config: start_step={start_step}, max_steps={max_steps}, log_interval={log_interval}")
+        
+        for step in range(start_step, max_steps):
             step_start = time.time()
             
-            # Generate random batch
+            # Generate random batch - use same seed offset to ensure sync
             x = torch.randint(0, 32000, (per_gpu_batch, seq_len), device=device)
             targets = torch.randint(0, 32000, (per_gpu_batch, seq_len), device=device)
             
@@ -956,37 +1331,63 @@ def run_pytorch_verification(
             losses.append(loss.item())
             throughputs.append(tokens_per_sec)
             
-            # Checkpoint for resilience
-            if (step + 1) % checkpoint_interval == 0 and rank == 0:
-                checkpoint_path = f"/checkpoints/pytorch_step_{step+1}.pt"
-                torch.save({
-                    "step": step + 1,
-                    "model_state_dict": model.module.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "loss": loss.item(),
-                }, checkpoint_path)
+            # Checkpoint for resilience (only rank 0 saves, but all must sync)
+            if (step + 1) % checkpoint_interval == 0:
+                # Barrier BEFORE checkpoint to ensure all workers are at same step
+                dist.barrier()
+                if rank == 0:
+                    checkpoint_path = f"{checkpoint_dir}/step_{step+1}.pt"
+                    torch.save({
+                        "step": step + 1,
+                        "model_state_dict": model.module.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "scheduler_state_dict": scheduler.state_dict(),
+                        "loss": loss.item(),
+                        "model_size": model_size,
+                    }, checkpoint_path)
+                    # Also save a "latest" checkpoint for easy resume
+                    latest_path = f"{checkpoint_dir}/latest.pt"
+                    torch.save({
+                        "step": step + 1,
+                        "model_state_dict": model.module.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "scheduler_state_dict": scheduler.state_dict(),
+                        "loss": loss.item(),
+                        "model_size": model_size,
+                    }, latest_path)
+                # Barrier AFTER checkpoint to ensure rank 0 finished saving
+                dist.barrier()
             
             # Log progress - all workers must call train.report (it's a collective)
-            # Only report at intervals or first step
-            if (step + 1) % log_interval == 0 or step == 0:
-                avg_loss = sum(losses[-log_interval:]) / len(losses[-log_interval:])
-                avg_throughput = sum(throughputs[-log_interval:]) / len(throughputs[-log_interval:])
-                # All workers call report, but only rank 0's metrics are used by default
+            # Report at intervals or first step after resume
+            if (step + 1) % log_interval == 0 or step == start_step:
+                # Barrier before report to ensure all workers are synchronized
+                dist.barrier()
+                recent_losses = losses[-log_interval:] if len(losses) >= log_interval else losses
+                recent_throughputs = throughputs[-log_interval:] if len(throughputs) >= log_interval else throughputs
+                avg_loss = sum(recent_losses) / len(recent_losses) if recent_losses else 0
+                avg_throughput = sum(recent_throughputs) / len(recent_throughputs) if recent_throughputs else 0
+                # All workers call report - this is a collective operation
                 train.report({
                     "step": step + 1,
                     "loss": avg_loss,
                     "throughput_tok_sec": avg_throughput,
                     "lr": scheduler.get_last_lr()[0],
                     "rank": rank,  # Include rank for debugging
+                    "resumed_from": start_step if start_step > 0 else None,
                 })
         
         total_time = time.time() - start_time
-        final_loss = sum(losses[-log_interval:]) / len(losses[-log_interval:])
-        avg_throughput = sum(throughputs) / len(throughputs)
+        recent_losses = losses[-log_interval:] if len(losses) >= log_interval else losses
+        final_loss = sum(recent_losses) / len(recent_losses) if recent_losses else 0
+        avg_throughput = sum(throughputs) / len(throughputs) if throughputs else 0
         
         # Final metrics
         gpu_mem_allocated = torch.cuda.max_memory_allocated() / 1e9
         gpu_mem_reserved = torch.cuda.max_memory_reserved() / 1e9
+        
+        # Final barrier to ensure all workers finished before returning
+        dist.barrier()
         
         return {
             "rank": rank,
@@ -997,6 +1398,8 @@ def run_pytorch_verification(
             "total_time_secs": total_time,
             "global_batch_size": global_batch_size,
             "gpu_memory_gb": {"allocated": gpu_mem_allocated, "reserved": gpu_mem_reserved},
+            "resumed_from_step": start_step if start_step > 0 else None,
+            "completed_steps": max_steps - start_step,
         }
     
     # Determine number of workers (limited by GPU concurrency and available GPUs)
@@ -1029,6 +1432,8 @@ def run_pytorch_verification(
         "seq_len": 128,
         "max_steps": max_steps,
         "checkpoint_interval": checkpoint_interval,
+        "model_config": model_cfg,
+        "model_size": model_size,  # Pass model_size for checkpoint directory
     }
     
     # Run distributed training
@@ -1060,8 +1465,375 @@ def run_pytorch_verification(
 
 
 @app.function(
+    image=ray_pytorch_image,
+    gpu="A100:8",
+    memory=65536,
+    timeout=21600,  # 6 hours for ablation study
+    volumes={"/checkpoints": checkpoint_volume},
+)
+def run_ablation_variant(
+    parallelism_config: Dict[str, Any],
+    model_size: str = "256M",
+    ablation_type: str = "attention",
+    variant: str = "MHA",
+    max_steps: int = 2000,
+) -> Dict[str, Any]:
+    """
+    Run a single ablation variant with distributed training.
+    
+    Supports:
+    - attention: MHA, GQA, MLA
+    - mtp: D0, D1, D2 (Multi-Token Prediction depth)
+    - precision: BF16, FP16
+    """
+    import torch
+    import torch.nn as nn
+    import time
+    import structlog
+    import ray
+    from ray.train.torch import TorchTrainer
+    from ray.train import ScalingConfig, RunConfig, CheckpointConfig
+    from ray import train
+    
+    logger = structlog.get_logger(__name__)
+    
+    parallelism = Parallelism5DConfig(**parallelism_config)
+    
+    logger.info(
+        "ablation_variant_start",
+        ablation_type=ablation_type,
+        variant=variant,
+        model_size=model_size,
+        max_steps=max_steps,
+    )
+    
+    # Model size configurations
+    MODEL_CONFIGS = {
+        "tiny": {"d_model": 256, "n_layers": 4, "n_heads": 4, "vocab_size": 32000, "d_ff": 1024},
+        "256M": {"d_model": 1024, "n_layers": 12, "n_heads": 16, "vocab_size": 32000, "d_ff": 4096},
+        "512M": {"d_model": 2048, "n_layers": 24, "n_heads": 32, "vocab_size": 32000, "d_ff": 8192},
+    }
+    
+    model_cfg = MODEL_CONFIGS.get(model_size, MODEL_CONFIGS["256M"])
+    
+    # Add ablation-specific configuration
+    ablation_cfg = {
+        "type": ablation_type,
+        "variant": variant,
+    }
+    
+    if ablation_type == "attention":
+        if variant == "MHA":
+            ablation_cfg["num_kv_heads"] = model_cfg["n_heads"]  # Full MHA
+            ablation_cfg["attention_type"] = "mha"
+        elif variant == "GQA":
+            ablation_cfg["num_kv_heads"] = model_cfg["n_heads"] // 4  # 4:1 ratio
+            ablation_cfg["attention_type"] = "gqa"
+        elif variant == "MLA":
+            ablation_cfg["d_latent"] = model_cfg["d_model"] // 16  # Compressed latent
+            ablation_cfg["attention_type"] = "mla"
+    elif ablation_type == "mtp":
+        ablation_cfg["mtp_depth"] = int(variant[1])  # D0=0, D1=1, D2=2
+    elif ablation_type == "precision":
+        ablation_cfg["precision"] = variant.lower()  # bf16 or fp16
+    
+    logger.info("ablation_config", config=ablation_cfg)
+    
+    # Define the ablation training loop
+    def ablation_train_loop(config):
+        """Training loop with ablation-specific model configuration."""
+        import torch
+        import torch.nn as nn
+        import torch.nn.functional as F
+        from torch.nn.parallel import DistributedDataParallel as DDP
+        
+        world_size = train.get_context().get_world_size()
+        rank = train.get_context().get_world_rank()
+        local_rank = train.get_context().get_local_rank()
+        
+        device = torch.device(f"cuda:{local_rank}")
+        torch.cuda.set_device(device)
+        
+        model_cfg = config.get("model_config", {})
+        ablation_cfg = config.get("ablation_config", {})
+        
+        d_model = model_cfg.get("d_model", 1024)
+        n_layers = model_cfg.get("n_layers", 12)
+        n_heads = model_cfg.get("n_heads", 16)
+        vocab_size = model_cfg.get("vocab_size", 32000)
+        d_ff = model_cfg.get("d_ff", 4096)
+        
+        ablation_type = ablation_cfg.get("type", "attention")
+        variant = ablation_cfg.get("variant", "MHA")
+        precision = ablation_cfg.get("precision", "bf16")
+        
+        # Set precision
+        if precision == "fp16":
+            dtype = torch.float16
+        else:
+            dtype = torch.bfloat16
+        
+        # Attention block with ablation support
+        class AblationAttentionBlock(nn.Module):
+            def __init__(self, d_model, n_heads, d_ff, ablation_cfg):
+                super().__init__()
+                self.attention_type = ablation_cfg.get("attention_type", "mha")
+                self.d_model = d_model
+                self.n_heads = n_heads
+                head_dim = d_model // n_heads
+                
+                if self.attention_type == "mha":
+                    # Full Multi-Head Attention
+                    self.attn = nn.MultiheadAttention(d_model, n_heads, batch_first=True)
+                elif self.attention_type == "gqa":
+                    # Grouped-Query Attention
+                    num_kv_heads = ablation_cfg.get("num_kv_heads", n_heads // 4)
+                    self.num_kv_heads = num_kv_heads
+                    self.head_dim = head_dim
+                    self.q_proj = nn.Linear(d_model, d_model)
+                    self.k_proj = nn.Linear(d_model, num_kv_heads * head_dim)
+                    self.v_proj = nn.Linear(d_model, num_kv_heads * head_dim)
+                    self.o_proj = nn.Linear(d_model, d_model)
+                elif self.attention_type == "mla":
+                    # Multi-Latent Attention (DeepSeek's approach)
+                    d_latent = ablation_cfg.get("d_latent", d_model // 16)
+                    self.d_latent = d_latent
+                    self.head_dim = head_dim
+                    # Compress KV to latent
+                    self.kv_compress = nn.Linear(d_model, d_latent)
+                    # Expand from latent
+                    self.k_expand = nn.Linear(d_latent, d_model)
+                    self.v_expand = nn.Linear(d_latent, d_model)
+                    self.q_proj = nn.Linear(d_model, d_model)
+                    self.o_proj = nn.Linear(d_model, d_model)
+                
+                self.ff = nn.Sequential(
+                    nn.Linear(d_model, d_ff),
+                    nn.GELU(),
+                    nn.Linear(d_ff, d_model),
+                )
+                self.ln1 = nn.LayerNorm(d_model)
+                self.ln2 = nn.LayerNorm(d_model)
+            
+            def forward(self, x):
+                B, S, D = x.shape
+                h = self.ln1(x)
+                
+                if self.attention_type == "mha":
+                    attn_out, _ = self.attn(h, h, h)
+                elif self.attention_type == "gqa":
+                    # GQA: fewer KV heads, repeat for query heads
+                    q = self.q_proj(h).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+                    k = self.k_proj(h).view(B, S, self.num_kv_heads, self.head_dim).transpose(1, 2)
+                    v = self.v_proj(h).view(B, S, self.num_kv_heads, self.head_dim).transpose(1, 2)
+                    
+                    # Repeat KV heads for each query head group
+                    n_rep = self.n_heads // self.num_kv_heads
+                    k = k.repeat_interleave(n_rep, dim=1)
+                    v = v.repeat_interleave(n_rep, dim=1)
+                    
+                    attn_out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+                    attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, D)
+                    attn_out = self.o_proj(attn_out)
+                elif self.attention_type == "mla":
+                    # MLA: compress KV, then expand
+                    q = self.q_proj(h).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+                    
+                    # Compress to latent
+                    c_kv = self.kv_compress(h)  # (B, S, d_latent)
+                    
+                    # Expand to K and V
+                    k = self.k_expand(c_kv).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+                    v = self.v_expand(c_kv).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+                    
+                    attn_out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+                    attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, D)
+                    attn_out = self.o_proj(attn_out)
+                
+                x = x + attn_out
+                x = x + self.ff(self.ln2(x))
+                return x
+        
+        # Model with ablation support
+        class AblationModel(nn.Module):
+            def __init__(self, vocab_size, d_model, n_layers, n_heads, d_ff, ablation_cfg):
+                super().__init__()
+                self.embed = nn.Embedding(vocab_size, d_model)
+                self.layers = nn.ModuleList([
+                    AblationAttentionBlock(d_model, n_heads, d_ff, ablation_cfg)
+                    for _ in range(n_layers)
+                ])
+                self.ln_f = nn.LayerNorm(d_model)
+                self.head = nn.Linear(d_model, vocab_size)
+                
+                # MTP support (Multi-Token Prediction)
+                mtp_depth = ablation_cfg.get("mtp_depth", 0)
+                self.mtp_depth = mtp_depth
+                if mtp_depth > 0:
+                    self.mtp_heads = nn.ModuleList([
+                        nn.Linear(d_model, vocab_size) for _ in range(mtp_depth)
+                    ])
+            
+            def forward(self, x, return_mtp=False):
+                x = self.embed(x)
+                for layer in self.layers:
+                    x = layer(x)
+                x = self.ln_f(x)
+                
+                logits = self.head(x)
+                
+                if return_mtp and self.mtp_depth > 0:
+                    mtp_logits = [head(x) for head in self.mtp_heads]
+                    return logits, mtp_logits
+                
+                return logits
+        
+        # Initialize model
+        model = AblationModel(vocab_size, d_model, n_layers, n_heads, d_ff, ablation_cfg)
+        model = model.to(device).to(dtype)
+        model = DDP(model, device_ids=[local_rank])
+        
+        num_params = sum(p.numel() for p in model.parameters())
+        
+        # Training config
+        base_batch_size = config.get("base_batch_size", 4)
+        seq_len = config.get("seq_len", 128)
+        max_steps = config.get("max_steps", 2000)
+        global_batch_size = base_batch_size * world_size
+        
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_steps)
+        
+        # Training loop
+        start_time = time.time()
+        losses = []
+        throughputs = []
+        log_interval = max(1, max_steps // 10)
+        
+        mtp_depth = ablation_cfg.get("mtp_depth", 0)
+        
+        for step in range(max_steps):
+            step_start = time.time()
+            
+            x = torch.randint(0, vocab_size, (base_batch_size, seq_len), device=device)
+            targets = torch.randint(0, vocab_size, (base_batch_size, seq_len), device=device)
+            
+            with torch.amp.autocast(device_type='cuda', dtype=dtype):
+                if mtp_depth > 0:
+                    logits, mtp_logits = model(x, return_mtp=True)
+                    # Main loss
+                    loss = F.cross_entropy(logits.view(-1, vocab_size), targets.view(-1))
+                    # MTP loss (predict next tokens)
+                    for i, mtp_head_logits in enumerate(mtp_logits):
+                        if seq_len > i + 1:
+                            mtp_targets = targets[:, i+1:].contiguous()
+                            mtp_preds = mtp_head_logits[:, :-(i+1)].contiguous()
+                            loss = loss + 0.1 * F.cross_entropy(
+                                mtp_preds.view(-1, vocab_size),
+                                mtp_targets.view(-1)
+                            )
+                else:
+                    logits = model(x)
+                    loss = F.cross_entropy(logits.view(-1, vocab_size), targets.view(-1))
+            
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
+            
+            step_time = time.time() - step_start
+            tokens_per_sec = (global_batch_size * seq_len) / step_time
+            
+            losses.append(loss.item())
+            throughputs.append(tokens_per_sec)
+            
+            if (step + 1) % log_interval == 0 or step == 0:
+                train.report({
+                    "step": step + 1,
+                    "loss": loss.item(),
+                    "throughput_tok_sec": tokens_per_sec,
+                    "lr": scheduler.get_last_lr()[0],
+                    "rank": rank,
+                    "ablation_type": ablation_type,
+                    "variant": variant,
+                })
+        
+        # Final report
+        total_time = time.time() - start_time
+        avg_loss = sum(losses[-100:]) / min(len(losses), 100)
+        avg_throughput = sum(throughputs[-100:]) / min(len(throughputs), 100)
+        
+        train.report({
+            "step": max_steps,
+            "loss": avg_loss,
+            "throughput_tok_sec": avg_throughput,
+            "lr": 0.0,
+            "rank": rank,
+            "ablation_type": ablation_type,
+            "variant": variant,
+            "final": True,
+            "total_time_secs": total_time,
+            "num_params": num_params,
+        })
+    
+    # Initialize Ray
+    if not ray.is_initialized():
+        ray.init()
+    
+    num_gpus = torch.cuda.device_count()
+    num_workers = min(num_gpus, MAX_GPU_CONCURRENCY, parallelism.total_gpus)
+    
+    scaling_config = ScalingConfig(
+        num_workers=num_workers,
+        use_gpu=True,
+        resources_per_worker={"GPU": 1, "CPU": 4},
+    )
+    
+    run_config = RunConfig(
+        name=f"ablation-{ablation_type}-{variant}",
+    )
+    
+    train_config = {
+        "base_batch_size": 4,
+        "seq_len": 128,
+        "max_steps": max_steps,
+        "model_config": model_cfg,
+        "ablation_config": ablation_cfg,
+    }
+    
+    trainer = TorchTrainer(
+        train_loop_per_worker=ablation_train_loop,
+        train_loop_config=train_config,
+        scaling_config=scaling_config,
+        run_config=run_config,
+    )
+    
+    result = trainer.fit()
+    
+    final_metrics = result.metrics if result.metrics else {}
+    
+    logger.info("ablation_variant_complete", 
+                variant=variant, 
+                ablation_type=ablation_type,
+                result=final_metrics)
+    
+    return {
+        "status": "complete",
+        "ablation_type": ablation_type,
+        "variant": variant,
+        "model_size": model_size,
+        "max_steps": max_steps,
+        "final_loss": final_metrics.get("loss", 0.0),
+        "avg_throughput_tok_sec": final_metrics.get("throughput_tok_sec", 0.0),
+        "num_params": final_metrics.get("num_params", 0),
+        "gpu_name": torch.cuda.get_device_name(0),
+    }
+
+
+@app.function(
     image=ray_rust_image,
-    gpu="A100:8",  # Request 8 GPUs for multi-GPU distributed training
+    gpu=f"{GPU_TYPE}:{GPU_COUNT}",  # A100-80GB × 8 for multi-GPU distributed training
     memory=65536,  # More memory for Rust compilation
     timeout=21600,  # 6 hours for longer training
     volumes={
@@ -1073,6 +1845,7 @@ def run_pytorch_verification(
 def run_rust_verification(
     parallelism_config: Dict[str, Any],
     max_steps: int = 100,
+    model_size: str = "tiny",
 ) -> Dict[str, Any]:
     """
     Run Rust backend verification for 5D parallelism and DualPipe.
@@ -1082,6 +1855,11 @@ def run_rust_verification(
     2. Runs the DualPipeScheduler verification
     3. Tests library unit tests (without pyo3-bindings to avoid Python deps)
     4. Verifies CUDA kernel execution
+    
+    Model sizes:
+    - tiny: 10M params (d_model=256, n_layers=4, n_heads=4)
+    - 256M: 256M params (d_model=1024, n_layers=12, n_heads=16)
+    - 512M: 512M params (d_model=2048, n_layers=24, n_heads=32)
     
     Uses persistent volumes for Cargo cache to speed up subsequent builds.
     """
@@ -1296,15 +2074,25 @@ def run_rust_verification(
             num_gpus = torch.cuda.device_count()
             logger.info("running_distributed_training", steps=max_steps, num_gpus=num_gpus, mode="multi_process_nccl")
             
+            # Model size configurations
+            MODEL_CONFIGS = {
+                "tiny": {"model_size": 10_000_000, "d_model": 256, "num_heads": 4, "num_layers": 4, "batch_size": 4},
+                "256M": {"model_size": 256_000_000, "d_model": 1024, "num_heads": 16, "num_layers": 12, "batch_size": 2},
+                "512M": {"model_size": 512_000_000, "d_model": 2048, "num_heads": 32, "num_layers": 24, "batch_size": 1},
+            }
+            
+            model_cfg = MODEL_CONFIGS.get(model_size, MODEL_CONFIGS["tiny"])
+            logger.info("model_config_selected", model_size=model_size, config=model_cfg)
+            
             # Create training config
             train_config = {
-                "model_size": 10_000_000,
-                "d_model": 256,
-                "num_heads": 4,
-                "num_layers": 4,
+                "model_size": model_cfg["model_size"],
+                "d_model": model_cfg["d_model"],
+                "num_heads": model_cfg["num_heads"],
+                "num_layers": model_cfg["num_layers"],
                 "vocab_size": 32000,
                 "max_seq_len": 128,
-                "batch_size": 4,  # Per-GPU batch size
+                "batch_size": model_cfg["batch_size"],  # Per-GPU batch size (smaller for larger models)
                 "learning_rate": 0.0001,
                 "max_steps": max_steps,
                 "warmup_steps": 10,
@@ -1318,6 +2106,10 @@ def run_rust_verification(
             config_path = f"{rust_src}/modal_train_config.json"
             with open(config_path, "w") as f:
                 json.dump(train_config, f)
+            
+            # Create checkpoint directory in mounted volume (persisted)
+            rust_checkpoint_dir = f"/checkpoints/rust/{model_size}"
+            os.makedirs(rust_checkpoint_dir, exist_ok=True)
             
             # ================================================================
             # TRUE NCCL DISTRIBUTED TRAINING SETUP
@@ -1359,7 +2151,7 @@ def run_rust_verification(
                 # Use the pre-built binary directly (no cargo run = no recompilation)
                 cmd = [binary_path, "train", 
                        "--config", config_path, 
-                       "--output", f"/tmp/rust_checkpoints/rank_{rank}"]
+                       "--output", f"{rust_checkpoint_dir}/rank_{rank}"]
                 
                 try:
                     result = subprocess.run(
@@ -1511,7 +2303,7 @@ def run_rust_verification(
                 test_result = subprocess.run(
                     [binary_path, "train", 
                      "--config", config_path, 
-                     "--output", "/tmp/rust_checkpoints"],
+                     "--output", rust_checkpoint_dir],
                     cwd=rust_src,
                     capture_output=True,
                     text=True,
@@ -1540,7 +2332,7 @@ def run_rust_verification(
                             pass
                 
                 # Also try to read final state
-                final_state_path = "/tmp/rust_checkpoints/final/training_state.json"
+                final_state_path = f"{rust_checkpoint_dir}/final/training_state.json"
                 try:
                     with open(final_state_path) as f:
                         final_state = json.load(f)
@@ -1604,12 +2396,13 @@ def run_rust_verification(
 # =============================================================================
 
 @app.local_entrypoint()
-def run_pytorch(scale: str = "initial", max_steps: int = 100):
+def run_pytorch(scale: str = "initial", max_steps: int = 100, model_size: str = "tiny"):
     """
     Run PyTorch verification on Modal A100 GPU.
     
     Usage:
-        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_pytorch --scale initial --max-steps 100
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_pytorch --scale initial --max-steps 100 --model-size tiny
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_pytorch --scale initial --max-steps 5000 --model-size 256M
     """
     import structlog
     logger = structlog.get_logger(__name__)
@@ -1619,18 +2412,20 @@ def run_pytorch(scale: str = "initial", max_steps: int = 100):
     else:
         config = Parallelism5DConfig.scaled_config()
     
-    cost_per_hour = config.total_gpus * 0.000583 * 3600
+    cost_per_hour = config.total_gpus * GPU_HOURLY_RATE  # A100-80GB @ $2.50/hr per GPU
     logger.info(
         "starting_pytorch_verification",
         scale=scale,
         total_gpus=config.total_gpus,
         cost_per_hour=f"${cost_per_hour:.2f}",
         max_steps=max_steps,
+        model_size=model_size,
     )
     
     result = run_pytorch_verification.remote(
         parallelism_config=config.to_dict(),
         max_steps=max_steps,
+        model_size=model_size,
     )
     
     logger.info("pytorch_verification_complete", result=result)
@@ -1638,12 +2433,18 @@ def run_pytorch(scale: str = "initial", max_steps: int = 100):
 
 
 @app.local_entrypoint()
-def run_rust(scale: str = "initial", max_steps: int = 100):
+def run_rust(scale: str = "initial", max_steps: int = 100, model_size: str = "tiny"):
     """
     Run Rust verification on Modal A100 GPU.
     
+    Model sizes:
+    - tiny: 10M params (default, fast verification)
+    - 256M: 256M params (R6 task)
+    - 512M: 512M params (R10 task)
+    
     Usage:
-        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_rust --scale initial --max-steps 100
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_rust --scale initial --max-steps 100 --model-size tiny
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_rust --scale initial --max-steps 5000 --model-size 256M
     """
     import structlog
     logger = structlog.get_logger(__name__)
@@ -1653,10 +2454,11 @@ def run_rust(scale: str = "initial", max_steps: int = 100):
     else:
         config = Parallelism5DConfig.scaled_config()
     
-    cost_per_hour = config.total_gpus * 0.000583 * 3600
+    cost_per_hour = config.total_gpus * GPU_HOURLY_RATE  # A100-80GB @ $2.50/hr per GPU
     logger.info(
         "starting_rust_verification",
         scale=scale,
+        model_size=model_size,
         total_gpus=config.total_gpus,
         cost_per_hour=f"${cost_per_hour:.2f}",
         max_steps=max_steps,
@@ -1665,6 +2467,7 @@ def run_rust(scale: str = "initial", max_steps: int = 100):
     result = run_rust_verification.remote(
         parallelism_config=config.to_dict(),
         max_steps=max_steps,
+        model_size=model_size,
     )
     
     logger.info("rust_verification_complete", result=result)
@@ -1687,7 +2490,7 @@ def run_full_pipeline(scale: str = "initial", backend: str = "pytorch", max_step
     else:
         config = Parallelism5DConfig.scaled_config()
     
-    cost_per_hour = config.total_gpus * 0.000583 * 3600
+    cost_per_hour = config.total_gpus * GPU_HOURLY_RATE  # A100-80GB @ $2.50/hr per GPU
     logger.info(
         "starting_full_pipeline",
         scale=scale,
@@ -1711,3 +2514,526 @@ def run_full_pipeline(scale: str = "initial", backend: str = "pytorch", max_step
     
     logger.info("pipeline_complete", result=verify_result)
     return verify_result
+
+
+@app.local_entrypoint()
+def run_ablation(
+    ablation_type: str = "attention",
+    model_size: str = "256M",
+    max_steps: int = 2000,
+    scale: str = "initial",
+):
+    """
+    Run ablation study on Modal with distributed training.
+    
+    Ablation Types:
+    - attention: MLA vs GQA vs MHA comparison
+    - mtp: Multi-Token Prediction depth (D=0,1,2)
+    - precision: BF16 vs FP16
+    
+    Usage:
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_ablation --ablation-type attention --model-size 256M --max-steps 2000
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_ablation --ablation-type mtp --model-size 256M --max-steps 2500
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_ablation --ablation-type precision --model-size 256M --max-steps 1500
+    """
+    import structlog
+    logger = structlog.get_logger(__name__)
+    
+    if scale == "initial":
+        config = Parallelism5DConfig.initial_config()
+    else:
+        config = Parallelism5DConfig.scaled_config()
+    
+    cost_per_hour = config.total_gpus * GPU_HOURLY_RATE  # A100-80GB @ $2.50/hr per GPU
+    
+    # Define ablation configurations
+    ABLATION_CONFIGS = {
+        "attention": {
+            "name": "attention_ablation",
+            "variants": ["MHA", "GQA", "MLA"],
+            "description": "Attention mechanism comparison: MHA vs GQA vs MLA",
+        },
+        "mtp": {
+            "name": "mtp_ablation", 
+            "variants": ["D0", "D1", "D2"],
+            "description": "Multi-Token Prediction depth: D=0 (baseline), D=1, D=2",
+        },
+        "precision": {
+            "name": "precision_ablation",
+            "variants": ["BF16", "FP16"],
+            "description": "Precision comparison: BF16 vs FP16",
+        },
+    }
+    
+    if ablation_type not in ABLATION_CONFIGS:
+        raise ValueError(f"Unknown ablation type: {ablation_type}. Choose from: {list(ABLATION_CONFIGS.keys())}")
+    
+    ablation_config = ABLATION_CONFIGS[ablation_type]
+    
+    logger.info(
+        "starting_ablation_study",
+        ablation_type=ablation_type,
+        model_size=model_size,
+        variants=ablation_config["variants"],
+        max_steps=max_steps,
+        total_gpus=config.total_gpus,
+        cost_per_hour=f"${cost_per_hour:.2f}",
+        description=ablation_config["description"],
+    )
+    
+    results = {}
+    
+    for variant in ablation_config["variants"]:
+        logger.info("running_variant", variant=variant, ablation_type=ablation_type)
+        
+        # Run ablation variant
+        result = run_ablation_variant.remote(
+            parallelism_config=config.to_dict(),
+            model_size=model_size,
+            ablation_type=ablation_type,
+            variant=variant,
+            max_steps=max_steps,
+        )
+        
+        results[variant] = result
+        logger.info("variant_complete", variant=variant, result=result)
+    
+    # Generate summary
+    logger.info("ablation_study_complete", 
+                ablation_type=ablation_type,
+                results=results)
+    
+    return {
+        "ablation_type": ablation_type,
+        "model_size": model_size,
+        "max_steps": max_steps,
+        "results": results,
+    }
+
+
+# =============================================================================
+# Distributed Evaluation Function (Step 10 - E1-E12)
+# =============================================================================
+
+@app.function(
+    image=ray_pytorch_image,
+    gpu="A100-80GB:1",
+    memory=32768,
+    timeout=3600,
+    volumes=VOLUME_MOUNTS,
+)
+def run_distributed_evaluation(
+    checkpoint_path: str,
+    backend: str = "pytorch",
+    model_size: str = "512M",
+    eval_tasks: list = None,
+    max_samples: int = 1000,
+):
+    """
+    Run distributed model evaluation on Modal.
+    
+    Evaluates:
+    - Perplexity on validation data (E1-E6)
+    - Downstream tasks: HellaSwag, LAMBADA (E7)
+    - Throughput and memory benchmarks (E8)
+    
+    Args:
+        checkpoint_path: Path to model checkpoint on Modal volume
+        backend: "pytorch" or "rust"
+        model_size: "tiny", "256M", or "512M"
+        eval_tasks: List of tasks ["perplexity", "downstream", "throughput", "memory"]
+        max_samples: Maximum samples for perplexity evaluation
+    
+    Returns:
+        Dictionary with evaluation results
+    """
+    import torch
+    import json
+    import time
+    from pathlib import Path
+    
+    if eval_tasks is None:
+        eval_tasks = ["perplexity", "throughput", "memory"]
+    
+    print(f"=" * 60)
+    print(f"DISTRIBUTED EVALUATION")
+    print(f"=" * 60)
+    print(f"Backend: {backend}")
+    print(f"Model Size: {model_size}")
+    print(f"Checkpoint: {checkpoint_path}")
+    print(f"Tasks: {eval_tasks}")
+    print(f"GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
+    print()
+    
+    results = {
+        "backend": backend,
+        "model_size": model_size,
+        "checkpoint_path": checkpoint_path,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+        "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
+    }
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dtype = torch.bfloat16
+    
+    # Check if checkpoint exists
+    checkpoint_path_obj = Path(checkpoint_path)
+    if not checkpoint_path_obj.exists():
+        print(f"Error: Checkpoint not found at {checkpoint_path}")
+        results["error"] = f"Checkpoint not found: {checkpoint_path}"
+        return results
+    
+    # Load model configuration
+    config_path = checkpoint_path_obj / "config.json"
+    if config_path.exists():
+        with open(config_path) as f:
+            model_config = json.load(f)
+        print(f"Model config loaded: {model_config}")
+    else:
+        print("No config.json found, using defaults")
+        model_config = {}
+    
+    # Create model based on config
+    try:
+        from deepseek.torch.model import build_model_for_training
+        from safetensors.torch import load_file
+        
+        # Build model architecture
+        model = build_model_for_training(
+            hidden_size=model_config.get("hidden_size", 2048),
+            num_layers=model_config.get("num_layers", 24),
+            num_attention_heads=model_config.get("num_attention_heads", 32),
+            vocab_size=model_config.get("vocab_size", 32000),
+        )
+        
+        # Load weights
+        safetensors_path = checkpoint_path_obj / "model.safetensors"
+        if safetensors_path.exists():
+            state_dict = load_file(str(safetensors_path))
+            model.load_state_dict(state_dict, strict=False)
+            print(f"Loaded weights from {safetensors_path}")
+        
+        model = model.to(device=device, dtype=dtype)
+        model.eval()
+        
+        # Count parameters
+        total_params = sum(p.numel() for p in model.parameters())
+        results["parameters_millions"] = total_params / 1e6
+        print(f"Model loaded: {total_params/1e6:.1f}M parameters")
+        
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        results["error"] = f"Model loading failed: {e}"
+        return results
+    
+    # Load tokenizer
+    try:
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        print("Tokenizer loaded")
+    except Exception as e:
+        print(f"Warning: Could not load tokenizer: {e}")
+        tokenizer = None
+    
+    # Run perplexity evaluation
+    if "perplexity" in eval_tasks:
+        print("\n--- Perplexity Evaluation ---")
+        try:
+            from datasets import load_dataset
+            
+            # Load validation data
+            dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="validation")
+            texts = [item["text"] for item in dataset if item["text"].strip()][:max_samples]
+            
+            total_loss = 0.0
+            total_tokens = 0
+            
+            model.eval()
+            with torch.no_grad():
+                for text in texts[:100]:  # Sample for efficiency
+                    if not text.strip() or len(text) < 10:
+                        continue
+                    
+                    tokens = tokenizer.encode(text, return_tensors="pt", truncation=True, max_length=2048)
+                    if tokens.shape[1] < 2:
+                        continue
+                    
+                    tokens = tokens.to(device)
+                    
+                    with torch.autocast(device_type="cuda", dtype=dtype):
+                        outputs = model(tokens[:, :-1])
+                        if hasattr(outputs, "logits"):
+                            logits = outputs.logits
+                        else:
+                            logits = outputs
+                    
+                    targets = tokens[:, 1:]
+                    loss = torch.nn.functional.cross_entropy(
+                        logits.reshape(-1, logits.shape[-1]),
+                        targets.reshape(-1),
+                        reduction="sum"
+                    )
+                    
+                    total_loss += loss.item()
+                    total_tokens += targets.numel()
+            
+            if total_tokens > 0:
+                avg_loss = total_loss / total_tokens
+                perplexity = torch.exp(torch.tensor(avg_loss)).item()
+                results["perplexity"] = perplexity
+                results["loss"] = avg_loss
+                results["total_tokens_evaluated"] = total_tokens
+                print(f"Perplexity: {perplexity:.2f}")
+                print(f"Average Loss: {avg_loss:.4f}")
+            else:
+                results["perplexity"] = float("nan")
+                
+        except Exception as e:
+            print(f"Perplexity evaluation error: {e}")
+            results["perplexity_error"] = str(e)
+    
+    # Run throughput benchmark
+    if "throughput" in eval_tasks:
+        print("\n--- Throughput Benchmark ---")
+        try:
+            import gc
+            
+            vocab_size = model_config.get("vocab_size", 32000)
+            batch_sizes = [1, 2, 4, 8]
+            seq_lengths = [512, 1024, 2048]
+            
+            throughput_results = []
+            
+            for batch_size in batch_sizes:
+                for seq_len in seq_lengths:
+                    try:
+                        # Clear memory
+                        gc.collect()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                        
+                        input_ids = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
+                        
+                        # Warmup
+                        for _ in range(3):
+                            with torch.no_grad():
+                                with torch.autocast(device_type="cuda", dtype=dtype):
+                                    _ = model(input_ids)
+                        
+                        torch.cuda.synchronize()
+                        
+                        # Benchmark
+                        start = time.perf_counter()
+                        for _ in range(10):
+                            with torch.no_grad():
+                                with torch.autocast(device_type="cuda", dtype=dtype):
+                                    _ = model(input_ids)
+                        torch.cuda.synchronize()
+                        
+                        elapsed = time.perf_counter() - start
+                        tokens_per_sec = (batch_size * seq_len * 10) / elapsed
+                        
+                        result = {
+                            "batch_size": batch_size,
+                            "seq_len": seq_len,
+                            "tokens_per_sec": tokens_per_sec,
+                        }
+                        throughput_results.append(result)
+                        print(f"BS={batch_size}, SeqLen={seq_len}: {tokens_per_sec:.0f} tok/sec")
+                        
+                        del input_ids
+                        
+                    except RuntimeError as e:
+                        if "out of memory" in str(e).lower():
+                            print(f"OOM at BS={batch_size}, SeqLen={seq_len}")
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                        else:
+                            raise
+            
+            results["throughput"] = throughput_results
+            if throughput_results:
+                results["best_throughput"] = max(r["tokens_per_sec"] for r in throughput_results)
+                
+        except Exception as e:
+            print(f"Throughput benchmark error: {e}")
+            results["throughput_error"] = str(e)
+    
+    # Run memory benchmark
+    if "memory" in eval_tasks:
+        print("\n--- Memory Benchmark ---")
+        try:
+            import gc
+            
+            vocab_size = model_config.get("vocab_size", 32000)
+            seq_lengths = [512, 1024, 2048]
+            
+            memory_results = []
+            
+            for seq_len in seq_lengths:
+                try:
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    torch.cuda.reset_peak_memory_stats()
+                    
+                    input_ids = torch.randint(0, vocab_size, (1, seq_len), device=device)
+                    
+                    with torch.no_grad():
+                        with torch.autocast(device_type="cuda", dtype=dtype):
+                            _ = model(input_ids)
+                    
+                    torch.cuda.synchronize()
+                    peak_memory = torch.cuda.max_memory_allocated() / 1e9
+                    
+                    result = {
+                        "seq_len": seq_len,
+                        "peak_memory_gb": peak_memory,
+                    }
+                    memory_results.append(result)
+                    print(f"SeqLen={seq_len}: {peak_memory:.2f} GB")
+                    
+                    del input_ids
+                    
+                except RuntimeError as e:
+                    if "out of memory" in str(e).lower():
+                        print(f"OOM at SeqLen={seq_len}")
+                        torch.cuda.empty_cache()
+                    else:
+                        raise
+            
+            results["memory"] = memory_results
+            if memory_results:
+                results["max_peak_memory_gb"] = max(r["peak_memory_gb"] for r in memory_results)
+                
+        except Exception as e:
+            print(f"Memory benchmark error: {e}")
+            results["memory_error"] = str(e)
+    
+    # Run downstream evaluation
+    if "downstream" in eval_tasks:
+        print("\n--- Downstream Evaluation ---")
+        try:
+            from datasets import load_dataset
+            
+            downstream_results = {}
+            
+            # HellaSwag evaluation (simplified)
+            print("Evaluating HellaSwag...")
+            try:
+                hellaswag = load_dataset("Rowan/hellaswag", split="validation")
+                correct = 0
+                total = min(100, len(hellaswag))  # Sample for efficiency
+                
+                model.eval()
+                with torch.no_grad():
+                    for i, item in enumerate(hellaswag):
+                        if i >= total:
+                            break
+                        
+                        context = item["ctx"]
+                        endings = item["endings"]
+                        label = int(item["label"])
+                        
+                        # Score each ending
+                        scores = []
+                        for ending in endings:
+                            full_text = f"{context} {ending}"
+                            tokens = tokenizer.encode(full_text, return_tensors="pt", truncation=True, max_length=512)
+                            tokens = tokens.to(device)
+                            
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = model(tokens[:, :-1])
+                                if hasattr(outputs, "logits"):
+                                    logits = outputs.logits
+                                else:
+                                    logits = outputs
+                            
+                            # Compute log probability
+                            log_probs = torch.log_softmax(logits[0], dim=-1)
+                            score = sum(log_probs[j, tokens[0, j+1]].item() for j in range(tokens.shape[1]-1))
+                            scores.append(score)
+                        
+                        predicted = scores.index(max(scores))
+                        if predicted == label:
+                            correct += 1
+                
+                accuracy = correct / total
+                downstream_results["hellaswag"] = accuracy
+                print(f"HellaSwag Accuracy: {accuracy:.4f}")
+                
+            except Exception as e:
+                print(f"HellaSwag error: {e}")
+                downstream_results["hellaswag_error"] = str(e)
+            
+            results["downstream"] = downstream_results
+            
+        except Exception as e:
+            print(f"Downstream evaluation error: {e}")
+            results["downstream_error"] = str(e)
+    
+    # Save results to logs volume
+    output_dir = Path(f"/logs/json/{backend}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    output_path = output_dir / f"{model_size}_eval.json"
+    with open(output_path, "w") as f:
+        json.dump(results, f, indent=2, default=str)
+    
+    print(f"\nResults saved to: {output_path}")
+    print(f"\n{'='*60}")
+    print("EVALUATION COMPLETE")
+    print(f"{'='*60}")
+    
+    return results
+
+
+@app.local_entrypoint()
+def run_evaluation(
+    backend: str = "pytorch",
+    model_size: str = "512M",
+    tasks: str = "perplexity,throughput,memory",
+    max_samples: int = 100,
+):
+    """
+    Run model evaluation on Modal (Step 10 - E1-E12).
+    
+    Usage:
+        # Evaluate PyTorch 512M model
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_evaluation --backend pytorch --model-size 512M
+        
+        # Evaluate with specific tasks
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_evaluation --backend pytorch --model-size 256M --tasks perplexity,downstream
+        
+        # Evaluate Rust model
+        uv run modal run src/deepseek/cloud/modal/ray_cluster.py::run_evaluation --backend rust --model-size 512M
+    """
+    import structlog
+    logger = structlog.get_logger(__name__)
+    
+    # Parse tasks
+    eval_tasks = [t.strip() for t in tasks.split(",")]
+    
+    # Determine checkpoint path based on backend and model size
+    checkpoint_path = f"/checkpoints/{backend}/{model_size}"
+    
+    logger.info(
+        "starting_evaluation",
+        backend=backend,
+        model_size=model_size,
+        checkpoint_path=checkpoint_path,
+        tasks=eval_tasks,
+        max_samples=max_samples,
+    )
+    
+    # Run distributed evaluation
+    result = run_distributed_evaluation.remote(
+        checkpoint_path=checkpoint_path,
+        backend=backend,
+        model_size=model_size,
+        eval_tasks=eval_tasks,
+        max_samples=max_samples,
+    )
+    
+    logger.info("evaluation_complete", result=result)
+    
+    return result

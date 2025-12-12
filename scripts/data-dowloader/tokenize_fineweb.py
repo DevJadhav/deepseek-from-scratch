@@ -85,7 +85,7 @@ def tokenize_shard(
                 # Split into max_seq_len chunks
                 while len(current_seq) >= max_seq_len:
                     seq = current_seq[:max_seq_len]
-                    sequences.append(np.array(seq, dtype=np.uint16))
+                    sequences.append(np.array(seq, dtype=np.uint32))
                     total_tokens += len(seq)
                     current_seq = current_seq[max_seq_len:]
 
@@ -97,7 +97,7 @@ def tokenize_shard(
         # Pad last sequence if needed
         if len(current_seq) < max_seq_len:
             current_seq.extend([tokenizer.pad_token_id] * (max_seq_len - len(current_seq)))
-        sequences.append(np.array(current_seq[:max_seq_len], dtype=np.uint16))
+        sequences.append(np.array(current_seq[:max_seq_len], dtype=np.uint32))
         total_tokens += len(current_seq[:max_seq_len])
 
     return sequences, total_tokens, num_samples
@@ -404,27 +404,27 @@ def main():
         "--input",
         "-i",
         type=str,
-        required=True,
-        help="Input directory with downloaded JSONL shards",
+        default="./data",
+        help="Input directory with downloaded JSONL shards (default: ./data)",
     )
     parser.add_argument(
         "--output",
         "-o",
         type=str,
-        required=True,
-        help="Output directory for tokenized binary shards",
+        default="./data/tokenized",
+        help="Output directory for tokenized binary shards (default: ./data/tokenized)",
     )
     parser.add_argument(
         "--tokenizer",
         type=str,
-        default="gpt2",
-        help="HuggingFace tokenizer name (default: gpt2)",
+        default="deepseek-ai/deepseek-llm-7b-base",
+        help="HuggingFace tokenizer name (default: deepseek-ai/deepseek-llm-7b-base)",
     )
     parser.add_argument(
         "--max-seq-len",
         type=int,
-        default=512,
-        help="Maximum sequence length (default: 512)",
+        default=2048,
+        help="Maximum sequence length (default: 2048)",
     )
     parser.add_argument(
         "--num-workers",
@@ -438,17 +438,81 @@ def main():
         default=100_000_000,
         help="Target tokens per output shard (default: 100M)",
     )
+    parser.add_argument(
+        "--domains",
+        nargs="+",
+        default=["web", "code", "math", "books", "scientific"],
+        help="Domains to tokenize (default: all)",
+    )
+    parser.add_argument(
+        "--multi-domain",
+        action="store_true",
+        help="Tokenize all domains and combine",
+    )
 
     args = parser.parse_args()
 
-    tokenize_dataset(
-        input_dir=Path(args.input),
-        output_dir=Path(args.output),
-        tokenizer_name=args.tokenizer,
-        max_seq_len=args.max_seq_len,
-        num_workers=args.num_workers,
-        tokens_per_shard=args.tokens_per_shard,
-    )
+    input_dir = Path(args.input)
+    output_dir = Path(args.output)
+    
+    if args.multi_domain:
+        # Tokenize each domain separately then combine
+        console.print("[bold blue]Multi-domain tokenization mode[/bold blue]")
+        all_stats = {}
+        
+        for domain in args.domains:
+            domain_input = input_dir / domain
+            if not domain_input.exists():
+                console.print(f"[yellow]Skipping {domain}: directory not found[/yellow]")
+                continue
+            
+            domain_output = output_dir / domain
+            console.print(f"\n[bold]Tokenizing domain: {domain}[/bold]")
+            
+            try:
+                stats = tokenize_dataset(
+                    input_dir=domain_input,
+                    output_dir=domain_output,
+                    tokenizer_name=args.tokenizer,
+                    max_seq_len=args.max_seq_len,
+                    num_workers=args.num_workers,
+                    tokens_per_shard=args.tokens_per_shard,
+                )
+                all_stats[domain] = stats
+            except Exception as e:
+                console.print(f"[red]Error tokenizing {domain}: {e}[/red]")
+                all_stats[domain] = {"error": str(e)}
+        
+        # Write combined manifest
+        combined_manifest = {
+            "format": "deepseek-tokens-multi-domain-v1",
+            "tokenizer": args.tokenizer,
+            "max_seq_len": args.max_seq_len,
+            "domains": all_stats,
+            "total_tokens": sum(
+                s.get("total_tokens", 0) for s in all_stats.values()
+            ),
+        }
+        
+        with open(output_dir / "domains_manifest.json", "w") as f:
+            json.dump(combined_manifest, f, indent=2)
+        
+        console.print("\n[bold green]Multi-domain tokenization complete![/bold green]")
+        for domain, stats in all_stats.items():
+            if "error" in stats:
+                console.print(f"  {domain}: ERROR - {stats['error']}")
+            else:
+                console.print(f"  {domain}: {stats.get('total_tokens', 0):,} tokens")
+    else:
+        # Single domain/directory tokenization
+        tokenize_dataset(
+            input_dir=input_dir,
+            output_dir=output_dir,
+            tokenizer_name=args.tokenizer,
+            max_seq_len=args.max_seq_len,
+            num_workers=args.num_workers,
+            tokens_per_shard=args.tokens_per_shard,
+        )
 
 
 if __name__ == "__main__":

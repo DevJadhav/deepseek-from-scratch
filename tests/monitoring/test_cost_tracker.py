@@ -24,11 +24,11 @@ class TestGPUType:
 
     def test_a100_80gb_rate(self) -> None:
         """Test A100 80GB hourly rate."""
-        assert GPUType.A100_80GB.hourly_rate == 2.78
+        assert GPUType.A100_80GB.hourly_rate == 2.50
 
     def test_a100_40gb_rate(self) -> None:
         """Test A100 40GB hourly rate."""
-        assert GPUType.A100_40GB.hourly_rate == 2.21
+        assert GPUType.A100_40GB.hourly_rate == 2.10
 
 
 class TestAlertLevel:
@@ -284,7 +284,7 @@ class TestCostTracker:
             gpu_type=GPUType.A100_80GB,
         )
 
-        assert tracker.total_cost == pytest.approx(2.78)
+        assert tracker.total_cost == pytest.approx(2.50)
 
     def test_save_and_load(self) -> None:
         """Test persisting tracker to file."""

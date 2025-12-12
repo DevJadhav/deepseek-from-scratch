@@ -20,7 +20,7 @@ When adding to this changelog:
 - **Modal Multi-GPU Training**: Real distributed training with Ray TorchTrainer on up to 8 A100 GPUs per node
 - **Cargo Build Caching**: Persistent Modal volumes for `target/` and `.cargo/registry` to eliminate rebuild times
 - **Training Checkpointing**: Automatic checkpoints every N steps for fault tolerance in distributed training
-- **Sequential Large-Scale Runs**: Support for >10 GPU configurations via sequential 8-GPU runs respecting Modal concurrency limits
+- **Sequential Large-Scale Runs**: Support for scaled GPU configurations via sequential 8-GPU batches with checkpoint continuity
 - **Scaled Batch Sizes**: Automatic batch size scaling based on world size for distributed training
 
 ### Changed

@@ -83,17 +83,17 @@ class TestParallelism5DConfig:
             assert mapping["dp_rank"] == expected["dp_rank"], f"DP rank mismatch for global_rank={expected['global_rank']}"
     
     def test_cost_estimation(self):
-        """Test cost estimation for A100-40GB @ $2.10/hr."""
+        """Test cost estimation for A100-80GB @ $2.50/hr."""
         from deepseek.cloud.modal.config import Parallelism5DConfig
         
         config_8 = Parallelism5DConfig.initial_8gpu()
         config_64 = Parallelism5DConfig.scaled_64gpu()
         
-        # 8 GPUs * $2.10/hr = $16.80/hr
-        assert abs(config_8.estimated_cost_per_hour - 16.80) < 0.01
+        # 8 GPUs * $2.50/hr = $20.00/hr
+        assert abs(config_8.estimated_cost_per_hour - 20.00) < 0.01
         
-        # 64 GPUs * $2.10/hr = $134.40/hr
-        assert abs(config_64.estimated_cost_per_hour - 134.40) < 0.01
+        # 64 GPUs * $2.50/hr = $160.00/hr
+        assert abs(config_64.estimated_cost_per_hour - 160.00) < 0.01
 
 
 # =============================================================================
@@ -329,26 +329,30 @@ class TestRayCluster:
     
     def test_ray_cluster_config(self):
         """Test RayClusterConfig defaults."""
-        from deepseek.cloud.modal.ray_cluster import RayClusterConfig, Parallelism5DConfig
+        from deepseek.cloud.modal.ray_cluster import RayClusterConfig, Parallelism5DConfig, GPU_TYPE
         
         config = RayClusterConfig()
         
         assert config.head_memory_mb == 65536  # 64GB for head
         assert config.worker_memory_mb == 32768  # 32GB for workers
-        assert config.gpu_type == "A100"
+        assert config.gpu_type == GPU_TYPE  # A100-80GB
         assert config.num_workers == 7  # 8 total - 1 head
     
     def test_ray_cluster_cost(self):
         """Test Ray cluster cost estimation."""
-        from deepseek.cloud.modal.ray_cluster import RayClusterConfig, Parallelism5DConfig
+        from deepseek.cloud.modal.ray_cluster import (
+            RayClusterConfig, Parallelism5DConfig, GPU_HOURLY_RATE
+        )
         
         config_8 = RayClusterConfig(parallelism=Parallelism5DConfig.initial_config())
         config_64 = RayClusterConfig(parallelism=Parallelism5DConfig.scaled_config())
         
-        # Cost per hour (A100-40GB @ $0.000583/sec = ~$2.0988/hr per GPU)
-        # 8 GPUs: ~$16.79/hr, 64 GPUs: ~$134.32/hr
-        assert abs(config_8.estimated_cost_per_hour - 16.80) < 0.10
-        assert abs(config_64.estimated_cost_per_hour - 134.40) < 0.10
+        # Cost per hour (A100-80GB @ $2.50/hr per GPU)
+        # 8 GPUs: $20.00/hr, 64 GPUs: $160.00/hr
+        expected_8 = 8 * GPU_HOURLY_RATE
+        expected_64 = 64 * GPU_HOURLY_RATE
+        assert abs(config_8.estimated_cost_per_hour - expected_8) < 0.10
+        assert abs(config_64.estimated_cost_per_hour - expected_64) < 0.10
 
 
 if __name__ == "__main__":

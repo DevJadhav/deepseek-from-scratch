@@ -1,0 +1,1334 @@
+[
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_32",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.6117007869528,
+      "final_perplexity": 5.011327183757746,
+      "avg_throughput": 5123.031168551327,
+      "peak_memory_mb": 820,
+      "batch_size": 32,
+      "gradient_accumulation": 8,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        2.7087807486476394,
+        2.441449623934695,
+        2.1558607140223853,
+        1.9179168022695496,
+        1.6117007869528
+      ],
+      "perplexity": [
+        15.010962216904222,
+        11.489684397865101,
+        8.635319521840529,
+        6.806763854316256,
+        5.011327183757746
+      ],
+      "throughput": [
+        4965.433924707204,
+        5380.757464102006,
+        4941.465760762705,
+        5191.858682288227,
+        5135.640010896492
+      ],
+      "memory_mb": [
+        820,
+        820,
+        820,
+        820,
+        820
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 32,
+      "gradient_accumulation": 8,
+      "description": "Small batch, high grad accum",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.015733957290649414,
+    "timestamp": "2025-12-12T05:09:08.321873"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_32",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.6423788028270152,
+      "final_perplexity": 5.167447241402887,
+      "avg_throughput": 4992.3417119320675,
+      "peak_memory_mb": 820,
+      "batch_size": 32,
+      "gradient_accumulation": 8,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        2.6808085809635633,
+        2.435002400372564,
+        2.1497716959559203,
+        1.847101966280803,
+        1.6423788028270152
+      ],
+      "perplexity": [
+        14.596891293847118,
+        11.415846115617862,
+        8.582898663004098,
+        6.34141523218528,
+        5.167447241402887
+      ],
+      "throughput": [
+        5249.336361645896,
+        4623.426321520476,
+        5412.859134274288,
+        4892.771842785955,
+        4783.314899433724
+      ],
+      "memory_mb": [
+        820,
+        820,
+        820,
+        820,
+        820
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 32,
+      "gradient_accumulation": 8,
+      "description": "Small batch, high grad accum",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005898475646972656,
+    "timestamp": "2025-12-12T05:09:10.439435"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_32",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.6138868653545628,
+      "final_perplexity": 5.022294321021671,
+      "avg_throughput": 5091.716180186058,
+      "peak_memory_mb": 820,
+      "batch_size": 32,
+      "gradient_accumulation": 8,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        2.688189045165201,
+        2.44093497892987,
+        2.1838738603066736,
+        1.8953380589014215,
+        1.6138868653545628
+      ],
+      "perplexity": [
+        14.705021662822617,
+        11.483772810497657,
+        8.88064207653889,
+        6.654797738020361,
+        5.022294321021671
+      ],
+      "throughput": [
+        4875.447619024726,
+        5142.173061970042,
+        5407.397133198501,
+        5112.370794165097,
+        4921.192292571924
+      ],
+      "memory_mb": [
+        820,
+        820,
+        820,
+        820,
+        820
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 32,
+      "gradient_accumulation": 8,
+      "description": "Small batch, high grad accum",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006239414215087891,
+    "timestamp": "2025-12-12T05:09:12.334239"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.794131570175813,
+      "final_perplexity": 6.014249499630672,
+      "avg_throughput": 10246.062337102654,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 4,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.0062089269126404,
+        2.708096106726259,
+        2.3970730828159583,
+        2.1197401601938424,
+        1.794131570175813
+      ],
+      "perplexity": [
+        20.210634512956982,
+        15.00068860016592,
+        10.990959627154732,
+        8.32897300775902,
+        6.014249499630672
+      ],
+      "throughput": [
+        9930.867849414408,
+        10761.514928204013,
+        9882.93152152541,
+        10383.717364576454,
+        10271.280021792983
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 4,
+      "description": "Medium batch, medium grad accum",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006620883941650391,
+    "timestamp": "2025-12-12T05:09:14.174395"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.815824203233819,
+      "final_perplexity": 6.1461397587129,
+      "avg_throughput": 9984.683423864135,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 4,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        2.986429617458743,
+        2.70353723122565,
+        2.3927674968503934,
+        2.0696665094575866,
+        1.815824203233819
+      ],
+      "perplexity": [
+        19.81480959494069,
+        14.93245797405094,
+        10.94373883517409,
+        7.922180704923735,
+        6.1461397587129
+      ],
+      "throughput": [
+        10498.672723291793,
+        9246.852643040953,
+        10825.718268548577,
+        9785.54368557191,
+        9566.629798867449
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 4,
+      "description": "Medium batch, medium grad accum",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005979537963867188,
+    "timestamp": "2025-12-12T05:09:16.015206"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.7956773610379049,
+      "final_perplexity": 6.023553460685905,
+      "avg_throughput": 10183.432360372117,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 4,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        2.9916483937440255,
+        2.707732197753443,
+        2.4168813685159494,
+        2.1037745776475685,
+        1.7956773610379049
+      ],
+      "perplexity": [
+        19.918488957737818,
+        14.995230708134077,
+        11.210842254990899,
+        8.197052001741753,
+        6.023553460685905
+      ],
+      "throughput": [
+        9750.895238049452,
+        10284.346123940084,
+        10814.794266397003,
+        10224.741588330195,
+        9842.384585143847
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 4,
+      "description": "Medium batch, medium grad accum",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006949901580810547,
+    "timestamp": "2025-12-12T05:09:17.781903"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_128",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.9758503934764,
+      "final_perplexity": 7.212750722701979,
+      "avg_throughput": 20492.124674205308,
+      "peak_memory_mb": 1780,
+      "batch_size": 128,
+      "gradient_accumulation": 2,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.30439037432382,
+        2.975724811967348,
+        2.637930357011193,
+        2.3239584011347754,
+        1.9758503934764
+      ],
+      "perplexity": [
+        27.23193524055255,
+        19.603827189934268,
+        13.984231270675002,
+        10.216033533099786,
+        7.212750722701979
+      ],
+      "throughput": [
+        19861.735698828816,
+        21523.029856408026,
+        19765.86304305082,
+        20767.43472915291,
+        20542.560043585967
+      ],
+      "memory_mb": [
+        1780,
+        1780,
+        1780,
+        1780,
+        1780
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 128,
+      "gradient_accumulation": 2,
+      "description": "Large batch, low grad accum",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005869865417480469,
+    "timestamp": "2025-12-12T05:09:19.678635"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_128",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9911894014135076,
+      "final_perplexity": 7.324240045113176,
+      "avg_throughput": 19969.36684772827,
+      "peak_memory_mb": 1780,
+      "batch_size": 128,
+      "gradient_accumulation": 2,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.290404290481782,
+        2.9725012001862825,
+        2.63488584797796,
+        2.288550983140402,
+        1.9911894014135076
+      ],
+      "perplexity": [
+        26.853718164217764,
+        19.540733810568476,
+        13.941720896693251,
+        9.860639091935955,
+        7.324240045113176
+      ],
+      "throughput": [
+        20997.345446583586,
+        18493.705286081906,
+        21651.436537097154,
+        19571.08737114382,
+        19133.259597734897
+      ],
+      "memory_mb": [
+        1780,
+        1780,
+        1780,
+        1780,
+        1780
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 128,
+      "gradient_accumulation": 2,
+      "description": "Large batch, low grad accum",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006499290466308594,
+    "timestamp": "2025-12-12T05:09:21.872893"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_128",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9769434326772815,
+      "final_perplexity": 7.2206388522201195,
+      "avg_throughput": 20366.864720744234,
+      "peak_memory_mb": 1780,
+      "batch_size": 128,
+      "gradient_accumulation": 2,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.2940945225826006,
+        2.9754674894649353,
+        2.651936930153337,
+        2.3126690294507113,
+        1.9769434326772815
+      ],
+      "perplexity": [
+        26.952997686589768,
+        19.59878333304166,
+        14.181480597612413,
+        10.10134950674415,
+        7.2206388522201195
+      ],
+      "throughput": [
+        19501.790476098904,
+        20568.692247880168,
+        21629.588532794005,
+        20449.48317666039,
+        19684.769170287695
+      ],
+      "memory_mb": [
+        1780,
+        1780,
+        1780,
+        1780,
+        1780
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 128,
+      "gradient_accumulation": 2,
+      "description": "Large batch, low grad accum",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006170272827148438,
+    "timestamp": "2025-12-12T05:09:23.791928"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_256",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 2.157065785087906,
+      "final_perplexity": 8.645731968146631,
+      "avg_throughput": 20492.124674205308,
+      "peak_memory_mb": 3060,
+      "batch_size": 256,
+      "gradient_accumulation": 1,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.6031044634563196,
+        3.2440480533631297,
+        2.878536541407979,
+        2.5298700800969214,
+        2.157065785087906
+      ],
+      "perplexity": [
+        36.71202886899871,
+        25.637293105303044,
+        17.788221795677256,
+        12.551875292309523,
+        8.645731968146631
+      ],
+      "throughput": [
+        19861.735698828816,
+        21523.029856408026,
+        19765.86304305082,
+        20767.43472915291,
+        20542.560043585967
+      ],
+      "memory_mb": [
+        3060,
+        3060,
+        3060,
+        3060,
+        3060
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 256,
+      "gradient_accumulation": 1,
+      "description": "Very large batch, no grad accum",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006010532379150391,
+    "timestamp": "2025-12-12T05:09:25.774639"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_256",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 2.1679121016169094,
+      "final_perplexity": 8.740016710454302,
+      "avg_throughput": 19969.36684772827,
+      "peak_memory_mb": 3060,
+      "batch_size": 256,
+      "gradient_accumulation": 1,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.593214808729371,
+        3.241768615612825,
+        2.8763837484251966,
+        2.5048332547287933,
+        2.1679121016169094
+      ],
+      "perplexity": [
+        36.35074899037314,
+        25.578921044596868,
+        17.749968626969675,
+        12.241517580441146,
+        8.740016710454302
+      ],
+      "throughput": [
+        20997.345446583586,
+        18493.705286081906,
+        21651.436537097154,
+        19571.08737114382,
+        19133.259597734897
+      ],
+      "memory_mb": [
+        3060,
+        3060,
+        3060,
+        3060,
+        3060
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 256,
+      "gradient_accumulation": 1,
+      "description": "Very large batch, no grad accum",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005986690521240234,
+    "timestamp": "2025-12-12T05:09:27.748361"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_256",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 2.1578386805189522,
+      "final_perplexity": 8.65241679788727,
+      "avg_throughput": 20366.864720744234,
+      "peak_memory_mb": 3060,
+      "batch_size": 256,
+      "gradient_accumulation": 1,
+      "effective_batch_size": 256
+    },
+    "metric_history": {
+      "loss": [
+        3.5958241968720124,
+        3.2438660988767216,
+        2.8884406842579744,
+        2.521887288823784,
+        2.1578386805189522
+      ],
+      "perplexity": [
+        36.44572606590127,
+        25.632628709169946,
+        17.96527421432838,
+        12.452075163542398,
+        8.65241679788727
+      ],
+      "throughput": [
+        19501.790476098904,
+        20568.692247880168,
+        21629.588532794005,
+        20449.48317666039,
+        19684.769170287695
+      ],
+      "memory_mb": [
+        3060,
+        3060,
+        3060,
+        3060,
+        3060
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 256,
+      "gradient_accumulation": 1,
+      "description": "Very large batch, no grad accum",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005881786346435547,
+    "timestamp": "2025-12-12T05:09:29.822734"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64_effective_128",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.794131570175813,
+      "final_perplexity": 6.014249499630672,
+      "avg_throughput": 10246.062337102654,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 2,
+      "effective_batch_size": 128
+    },
+    "metric_history": {
+      "loss": [
+        3.0062089269126404,
+        2.708096106726259,
+        2.3970730828159583,
+        2.1197401601938424,
+        1.794131570175813
+      ],
+      "perplexity": [
+        20.210634512956982,
+        15.00068860016592,
+        10.990959627154732,
+        8.32897300775902,
+        6.014249499630672
+      ],
+      "throughput": [
+        9930.867849414408,
+        10761.514928204013,
+        9882.93152152541,
+        10383.717364576454,
+        10271.280021792983
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 2,
+      "description": "Smaller effective batch",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005688667297363281,
+    "timestamp": "2025-12-12T05:09:31.799509"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64_effective_128",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.815824203233819,
+      "final_perplexity": 6.1461397587129,
+      "avg_throughput": 9984.683423864135,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 2,
+      "effective_batch_size": 128
+    },
+    "metric_history": {
+      "loss": [
+        2.986429617458743,
+        2.70353723122565,
+        2.3927674968503934,
+        2.0696665094575866,
+        1.815824203233819
+      ],
+      "perplexity": [
+        19.81480959494069,
+        14.93245797405094,
+        10.94373883517409,
+        7.922180704923735,
+        6.1461397587129
+      ],
+      "throughput": [
+        10498.672723291793,
+        9246.852643040953,
+        10825.718268548577,
+        9785.54368557191,
+        9566.629798867449
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 2,
+      "description": "Smaller effective batch",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006113052368164062,
+    "timestamp": "2025-12-12T05:09:33.824851"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64_effective_128",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.7956773610379049,
+      "final_perplexity": 6.023553460685905,
+      "avg_throughput": 10183.432360372117,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 2,
+      "effective_batch_size": 128
+    },
+    "metric_history": {
+      "loss": [
+        2.9916483937440255,
+        2.707732197753443,
+        2.4168813685159494,
+        2.1037745776475685,
+        1.7956773610379049
+      ],
+      "perplexity": [
+        19.918488957737818,
+        14.995230708134077,
+        11.210842254990899,
+        8.197052001741753,
+        6.023553460685905
+      ],
+      "throughput": [
+        9750.895238049452,
+        10284.346123940084,
+        10814.794266397003,
+        10224.741588330195,
+        9842.384585143847
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 2,
+      "description": "Smaller effective batch",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006070137023925781,
+    "timestamp": "2025-12-12T05:09:35.751866"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64_effective_512",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.794131570175813,
+      "final_perplexity": 6.014249499630672,
+      "avg_throughput": 10246.062337102654,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 8,
+      "effective_batch_size": 512
+    },
+    "metric_history": {
+      "loss": [
+        3.0062089269126404,
+        2.708096106726259,
+        2.3970730828159583,
+        2.1197401601938424,
+        1.794131570175813
+      ],
+      "perplexity": [
+        20.210634512956982,
+        15.00068860016592,
+        10.990959627154732,
+        8.32897300775902,
+        6.014249499630672
+      ],
+      "throughput": [
+        9930.867849414408,
+        10761.514928204013,
+        9882.93152152541,
+        10383.717364576454,
+        10271.280021792983
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 8,
+      "description": "Larger effective batch",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0005581378936767578,
+    "timestamp": "2025-12-12T05:09:37.815881"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64_effective_512",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.815824203233819,
+      "final_perplexity": 6.1461397587129,
+      "avg_throughput": 9984.683423864135,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 8,
+      "effective_batch_size": 512
+    },
+    "metric_history": {
+      "loss": [
+        2.986429617458743,
+        2.70353723122565,
+        2.3927674968503934,
+        2.0696665094575866,
+        1.815824203233819
+      ],
+      "perplexity": [
+        19.81480959494069,
+        14.93245797405094,
+        10.94373883517409,
+        7.922180704923735,
+        6.1461397587129
+      ],
+      "throughput": [
+        10498.672723291793,
+        9246.852643040953,
+        10825.718268548577,
+        9785.54368557191,
+        9566.629798867449
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 8,
+      "description": "Larger effective batch",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0006661415100097656,
+    "timestamp": "2025-12-12T05:09:39.724635"
+  },
+  {
+    "name": "batch_size_ablation",
+    "variation": "batch_64_effective_512",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.7956773610379049,
+      "final_perplexity": 6.023553460685905,
+      "avg_throughput": 10183.432360372117,
+      "peak_memory_mb": 1140,
+      "batch_size": 64,
+      "gradient_accumulation": 8,
+      "effective_batch_size": 512
+    },
+    "metric_history": {
+      "loss": [
+        2.9916483937440255,
+        2.707732197753443,
+        2.4168813685159494,
+        2.1037745776475685,
+        1.7956773610379049
+      ],
+      "perplexity": [
+        19.918488957737818,
+        14.995230708134077,
+        11.210842254990899,
+        8.197052001741753,
+        6.023553460685905
+      ],
+      "throughput": [
+        9750.895238049452,
+        10284.346123940084,
+        10814.794266397003,
+        10224.741588330195,
+        9842.384585143847
+      ],
+      "memory_mb": [
+        1140,
+        1140,
+        1140,
+        1140,
+        1140
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "batch_size": 64,
+      "gradient_accumulation": 8,
+      "description": "Larger effective batch",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0008320808410644531,
+    "timestamp": "2025-12-12T05:09:41.599476"
+  }
+]

@@ -2,13 +2,13 @@
 GPU Orchestrator for Distributed Training
 ==========================================
 
-Orchestrates 10x A100-80GB GPUs for distributed training with 5D parallelism.
+Orchestrates 8x A100-40GB GPUs for distributed training with 5D parallelism.
 
 5D Parallelism Configuration
 ----------------------------
 - TP=2: Tensor parallel (split weights within GPU pairs)
-- PP=1: Pipeline parallel (single stage for small models)
-- DP=5: Data parallel (5 replicas processing different batches)
+- PP=2: Pipeline parallel (DualPipe bidirectional scheduling)
+- DP=2: Data parallel (2 replicas processing different batches)
 - EP=1: Expert parallel (all experts on same GPU)
 - SP=1: Sequence parallel (no sequence splitting)
 
@@ -81,12 +81,12 @@ class WorkerConfig:
 
 class GPUOrchestrator:
     """
-    Orchestrates distributed training across 10 GPUs with 5D parallelism.
+    Orchestrates distributed training across 8 A100-40GB GPUs with 5D parallelism.
 
     This class manages:
-    - Spawning 10 GPU workers on Modal
+    - Spawning 8 GPU workers on Modal
     - Configuring NCCL for communication
-    - Setting up 5D parallelism groups
+    - Setting up 5D parallelism groups (TP=2, PP=2, DP=2)
     - Bi-directional checkpoint synchronization
     """
 
@@ -187,7 +187,7 @@ def gpu_worker(
     """
     Single GPU worker function.
 
-    This function runs on one A100-80GB GPU and participates in
+    This function runs on one A100-40GB GPU and participates in
     distributed training with other workers.
 
     Args:
@@ -309,11 +309,11 @@ def run_distributed_training(
     max_steps: int = 1000,
 ) -> dict[str, Any]:
     """
-    Orchestrate distributed training across 10 GPUs.
+    Orchestrate distributed training across 8 A100-40GB GPUs with DualPipe.
 
     This function:
-    1. Creates worker configurations with 5D parallelism
-    2. Spawns 10 GPU workers in parallel
+    1. Creates worker configurations with 5D parallelism (TP=2, PP=2, DP=2)
+    2. Spawns 8 GPU workers in parallel
     3. Collects results and metrics
     4. Syncs checkpoints bi-directionally
 
@@ -350,8 +350,8 @@ def run_distributed_training(
         training_config = config.to_dict()
         print(f"Created {model_size} config with {max_steps} steps")
 
-    # Create orchestrator
-    parallelism = get_5d_config(tp=2, pp=1, dp=5, ep=1, sp=1)
+    # Create orchestrator (8 GPUs with DualPipe)
+    parallelism = get_5d_config(tp=2, pp=2, dp=2, ep=1, sp=1)
     orchestrator = GPUOrchestrator(parallelism=parallelism)
 
     print(f"\n5D Parallelism Configuration:")

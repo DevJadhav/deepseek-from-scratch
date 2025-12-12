@@ -74,6 +74,38 @@ def run_ablation_study(ablation_name: str, seeds: list[int], max_steps: int, out
         config = create_precision_config(seeds, max_steps, output_dir)
         train_fn = run_precision_training
 
+    elif ablation_name == "rope":
+        from scripts.ablation.run_rope_ablation import (
+            create_rope_config,
+            run_rope_training,
+        )
+        config = create_rope_config(seeds, max_steps, output_dir)
+        train_fn = run_rope_training
+
+    elif ablation_name == "batch":
+        from scripts.ablation.run_batch_ablation import (
+            create_batch_config,
+            run_batch_training,
+        )
+        config = create_batch_config(seeds, max_steps, output_dir)
+        train_fn = run_batch_training
+
+    elif ablation_name == "dataset":
+        from scripts.ablation.run_dataset_ablation import (
+            create_dataset_config,
+            run_dataset_training,
+        )
+        config = create_dataset_config(seeds, max_steps, output_dir)
+        train_fn = run_dataset_training
+
+    elif ablation_name == "lr":
+        from scripts.ablation.run_lr_ablation import (
+            create_lr_config,
+            run_lr_training,
+        )
+        config = create_lr_config(seeds, max_steps, output_dir)
+        train_fn = run_lr_training
+
     else:
         raise ValueError(f"Unknown ablation: {ablation_name}")
 
@@ -168,7 +200,7 @@ def main():
                         help="Maximum training steps per run")
     parser.add_argument("--output-dir", type=str, default="./ablation_results",
                         help="Output directory for results")
-    parser.add_argument("--ablations", type=str, default="attention,expert,balancing,mtp,precision",
+    parser.add_argument("--ablations", type=str, default="attention,expert,balancing,mtp,precision,rope,batch,dataset,lr",
                         help="Comma-separated list of ablations to run")
     parser.add_argument("--force", action="store_true",
                         help="Force re-run even if cached")

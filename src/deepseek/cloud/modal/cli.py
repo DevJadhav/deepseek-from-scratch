@@ -3,7 +3,7 @@
 PyTorch+GPU CLI for DeepSeek Training
 =====================================
 
-Command-line interface for running DeepSeek training on Modal H100 GPUs.
+Command-line interface for running DeepSeek training on Modal A100-40GB GPUs.
 Provides subcommands for train, evaluate, export, and inference similar to the Rust CLI.
 
 Usage:

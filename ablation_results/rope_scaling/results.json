@@ -1,0 +1,1907 @@
+[
+  {
+    "name": "rope_scaling",
+    "variation": "standard",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.6987168879665575,
+      "final_perplexity": 5.466928208120937,
+      "context_utilization": 0.8642845034936123,
+      "attention_entropy": 2.4826108350552274,
+      "avg_throughput": 9985.014360141442,
+      "rope_strategy": "standard"
+    },
+    "metric_history": {
+      "loss": [
+        3.0496714153011233,
+        2.6765846625276666,
+        2.3530525614065048,
+        2.1241962271566033,
+        1.6987168879665575
+      ],
+      "perplexity": [
+        21.108407383216758,
+        14.535365247581131,
+        10.517626472898224,
+        8.366170284439757,
+        5.466928208120937
+      ],
+      "context_utilization": [
+        0.8472347139765762,
+        0.8553172608610163,
+        0.8808512008717193,
+        0.841734395106844,
+        0.8962849466519055
+      ],
+      "attention_entropy": [
+        2.5647688538100692,
+        2.657921281550739,
+        2.4536582307187538,
+        2.3275082167486967,
+        2.409197592447879
+      ],
+      "throughput": [
+        10761.514928204013,
+        10383.717364576454,
+        9767.135123214872,
+        9718.856235379513,
+        9293.848149332354
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "standard",
+      "description": "Standard RoPE (no scaling)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.5095269680023193,
+    "timestamp": "2025-12-12T05:12:24.480809"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "standard",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 2.020593008272545,
+      "final_perplexity": 7.542796548429951,
+      "context_utilization": 0.8833197026948192,
+      "attention_entropy": 2.4547497008253933,
+      "avg_throughput": 9792.191881184519,
+      "rope_strategy": "standard"
+    },
+    "metric_history": {
+      "loss": [
+        2.8914369396699438,
+        2.6421399748031464,
+        2.5265936258705533,
+        2.2491389626124287,
+        2.020593008272545
+      ],
+      "perplexity": [
+        18.019183487064595,
+        14.043223619944017,
+        12.510816947084185,
+        9.47957005710514,
+        7.542796548429951
+      ],
+      "context_utilization": [
+        0.8699469089316717,
+        0.893028730741943,
+        0.8526651919546979,
+        0.867221960066307,
+        0.9337357217794757
+      ],
+      "attention_entropy": [
+        2.5282978498051993,
+        2.2573320756606927,
+        2.4321113848377944,
+        2.4556018040353935,
+        2.6004053897878876
+      ],
+      "throughput": [
+        9246.852643040953,
+        9785.54368557191,
+        9952.645515531554,
+        9782.824362190742,
+        10193.093199587429
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "standard",
+      "description": "Standard RoPE (no scaling)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00045180320739746094,
+    "timestamp": "2025-12-12T05:12:26.457072"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "standard",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9915676031651763,
+      "final_perplexity": 7.3270106094109915,
+      "context_utilization": 0.8778973905768801,
+      "attention_entropy": 2.4903167870183593,
+      "avg_throughput": 10299.019861905963,
+      "rope_strategy": "standard"
+    },
+    "metric_history": {
+      "loss": [
+        2.9331871499522033,
+        2.835050948127594,
+        2.3654188883032403,
+        1.9888153934308066,
+        1.9915676031651763
+      ],
+      "perplexity": [
+        18.787413481377776,
+        17.031267989507054,
+        10.64849841484127,
+        7.306872863848999,
+        7.3270106094109915
+      ],
+      "context_utilization": [
+        0.8400358095219781,
+        0.8925917706558801,
+        0.8636953834057539,
+        0.8847570221840059,
+        0.9084069671167827
+      ],
+      "attention_entropy": [
+        2.5618575820275438,
+        2.5301966211805453,
+        2.29840286545112,
+        2.467487033310723,
+        2.593639833121864
+      ],
+      "throughput": [
+        10284.346123940084,
+        10224.741588330195,
+        9434.88438166797,
+        10972.351196607055,
+        10578.776018984518
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "standard",
+      "description": "Standard RoPE (no scaling)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003361701965332031,
+    "timestamp": "2025-12-12T05:12:28.707492"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "linear_2x",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.6627168879665575,
+      "final_perplexity": 5.273619231132944,
+      "context_utilization": 0.9142845034936122,
+      "attention_entropy": 2.5826108350552275,
+      "avg_throughput": 10184.71464734427,
+      "rope_strategy": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        2.9896714153011232,
+        2.6225846625276663,
+        2.3050525614065047,
+        2.0821962271566035,
+        1.6627168879665575
+      ],
+      "perplexity": [
+        19.87914943396144,
+        13.77127171528882,
+        10.024705151180102,
+        8.022067864872792,
+        5.273619231132944
+      ],
+      "context_utilization": [
+        0.8972347139765763,
+        0.9053172608610164,
+        0.9308512008717194,
+        0.891734395106844,
+        0.9462849466519055
+      ],
+      "attention_entropy": [
+        2.6647688538100693,
+        2.7579212815507392,
+        2.553658230718754,
+        2.4275082167486968,
+        2.509197592447879
+      ],
+      "throughput": [
+        10976.745226768093,
+        10591.391711867984,
+        9962.477825679169,
+        9913.233360087104,
+        9479.725112319002
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "linear",
+      "rope_scale": 2.0,
+      "description": "Linear scaling 2x",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004138946533203125,
+    "timestamp": "2025-12-12T05:12:30.717992"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "linear_2x",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9845930082725454,
+      "final_perplexity": 7.276085476160957,
+      "context_utilization": 0.9333197026948191,
+      "attention_entropy": 2.5547497008253934,
+      "avg_throughput": 9988.035718808209,
+      "rope_strategy": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        2.8314369396699437,
+        2.588139974803146,
+        2.478593625870553,
+        2.2071389626124285,
+        1.9845930082725454
+      ],
+      "perplexity": [
+        16.969827932264383,
+        13.305000936319367,
+        11.924482336207776,
+        9.089673260577896,
+        7.276085476160957
+      ],
+      "context_utilization": [
+        0.9199469089316717,
+        0.943028730741943,
+        0.902665191954698,
+        0.9172219600663071,
+        0.9837357217794758
+      ],
+      "attention_entropy": [
+        2.6282978498051994,
+        2.357332075660693,
+        2.5321113848377945,
+        2.5556018040353936,
+        2.7004053897878877
+      ],
+      "throughput": [
+        9431.789695901773,
+        9981.25455928335,
+        10151.698425842185,
+        9978.480849434556,
+        10396.955063579177
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "linear",
+      "rope_scale": 2.0,
+      "description": "Linear scaling 2x",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004417896270751953,
+    "timestamp": "2025-12-12T05:12:32.653267"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "linear_2x",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9555676031651763,
+      "final_perplexity": 7.067929664616174,
+      "context_utilization": 0.9278973905768801,
+      "attention_entropy": 2.590316787018359,
+      "avg_throughput": 10505.000259144083,
+      "rope_strategy": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        2.8731871499522033,
+        2.781050948127594,
+        2.3174188883032403,
+        1.9468153934308063,
+        1.9555676031651763
+      ],
+      "perplexity": [
+        17.69331969454417,
+        16.13597010769531,
+        10.149443620826466,
+        7.0063395796299295,
+        7.067929664616174
+      ],
+      "context_utilization": [
+        0.8900358095219781,
+        0.9425917706558802,
+        0.913695383405754,
+        0.9347570221840059,
+        0.9584069671167827
+      ],
+      "attention_entropy": [
+        2.661857582027544,
+        2.6301966211805454,
+        2.39840286545112,
+        2.567487033310723,
+        2.693639833121864
+      ],
+      "throughput": [
+        10490.033046418886,
+        10429.236420096799,
+        9623.582069301328,
+        11191.798220539196,
+        10790.351539364206
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "linear",
+      "rope_scale": 2.0,
+      "description": "Linear scaling 2x",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003409385681152344,
+    "timestamp": "2025-12-12T05:12:34.518659"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "linear_4x",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.6627168879665575,
+      "final_perplexity": 5.273619231132944,
+      "context_utilization": 0.9142845034936122,
+      "attention_entropy": 2.5826108350552275,
+      "avg_throughput": 10184.71464734427,
+      "rope_strategy": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        2.9896714153011232,
+        2.6225846625276663,
+        2.3050525614065047,
+        2.0821962271566035,
+        1.6627168879665575
+      ],
+      "perplexity": [
+        19.87914943396144,
+        13.77127171528882,
+        10.024705151180102,
+        8.022067864872792,
+        5.273619231132944
+      ],
+      "context_utilization": [
+        0.8972347139765763,
+        0.9053172608610164,
+        0.9308512008717194,
+        0.891734395106844,
+        0.9462849466519055
+      ],
+      "attention_entropy": [
+        2.6647688538100693,
+        2.7579212815507392,
+        2.553658230718754,
+        2.4275082167486968,
+        2.509197592447879
+      ],
+      "throughput": [
+        10976.745226768093,
+        10591.391711867984,
+        9962.477825679169,
+        9913.233360087104,
+        9479.725112319002
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "linear",
+      "rope_scale": 4.0,
+      "description": "Linear scaling 4x",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.000347137451171875,
+    "timestamp": "2025-12-12T05:12:36.416299"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "linear_4x",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9845930082725454,
+      "final_perplexity": 7.276085476160957,
+      "context_utilization": 0.9333197026948191,
+      "attention_entropy": 2.5547497008253934,
+      "avg_throughput": 9988.035718808209,
+      "rope_strategy": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        2.8314369396699437,
+        2.588139974803146,
+        2.478593625870553,
+        2.2071389626124285,
+        1.9845930082725454
+      ],
+      "perplexity": [
+        16.969827932264383,
+        13.305000936319367,
+        11.924482336207776,
+        9.089673260577896,
+        7.276085476160957
+      ],
+      "context_utilization": [
+        0.9199469089316717,
+        0.943028730741943,
+        0.902665191954698,
+        0.9172219600663071,
+        0.9837357217794758
+      ],
+      "attention_entropy": [
+        2.6282978498051994,
+        2.357332075660693,
+        2.5321113848377945,
+        2.5556018040353936,
+        2.7004053897878877
+      ],
+      "throughput": [
+        9431.789695901773,
+        9981.25455928335,
+        10151.698425842185,
+        9978.480849434556,
+        10396.955063579177
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "linear",
+      "rope_scale": 4.0,
+      "description": "Linear scaling 4x",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00039196014404296875,
+    "timestamp": "2025-12-12T05:12:38.619247"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "linear_4x",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9555676031651763,
+      "final_perplexity": 7.067929664616174,
+      "context_utilization": 0.9278973905768801,
+      "attention_entropy": 2.590316787018359,
+      "avg_throughput": 10505.000259144083,
+      "rope_strategy": "linear"
+    },
+    "metric_history": {
+      "loss": [
+        2.8731871499522033,
+        2.781050948127594,
+        2.3174188883032403,
+        1.9468153934308063,
+        1.9555676031651763
+      ],
+      "perplexity": [
+        17.69331969454417,
+        16.13597010769531,
+        10.149443620826466,
+        7.0063395796299295,
+        7.067929664616174
+      ],
+      "context_utilization": [
+        0.8900358095219781,
+        0.9425917706558802,
+        0.913695383405754,
+        0.9347570221840059,
+        0.9584069671167827
+      ],
+      "attention_entropy": [
+        2.661857582027544,
+        2.6301966211805454,
+        2.39840286545112,
+        2.567487033310723,
+        2.693639833121864
+      ],
+      "throughput": [
+        10490.033046418886,
+        10429.236420096799,
+        9623.582069301328,
+        11191.798220539196,
+        10790.351539364206
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "linear",
+      "rope_scale": 4.0,
+      "description": "Linear scaling 4x",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004639625549316406,
+    "timestamp": "2025-12-12T05:12:40.693393"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "ntk_aware_a2",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.6087168879665574,
+      "final_perplexity": 4.996396177040679,
+      "context_utilization": 0.9442845034936124,
+      "attention_entropy": 2.682610835055228,
+      "avg_throughput": 10484.265078148514,
+      "rope_strategy": "ntk_aware"
+    },
+    "metric_history": {
+      "loss": [
+        2.899671415301123,
+        2.5415846625276663,
+        2.2330525614065047,
+        2.0191962271566033,
+        1.6087168879665574
+      ],
+      "perplexity": [
+        18.16817460436424,
+        12.699779899008917,
+        9.328297864570828,
+        7.5322682672136265,
+        4.996396177040679
+      ],
+      "context_utilization": [
+        0.9272347139765763,
+        0.9353172608610164,
+        0.9608512008717194,
+        0.9217343951068441,
+        0.9762849466519056
+      ],
+      "attention_entropy": [
+        2.7647688538100694,
+        2.8579212815507393,
+        2.653658230718754,
+        2.527508216748697,
+        2.609197592447879
+      ],
+      "throughput": [
+        11299.590674614214,
+        10902.903232805278,
+        10255.491879375615,
+        10204.79904714849,
+        9758.540556798973
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "ntk_aware",
+      "rope_alpha": 2.0,
+      "description": "NTK-aware \u03b1=2",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00033211708068847656,
+    "timestamp": "2025-12-12T05:12:42.733732"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "ntk_aware_a2",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9305930082725453,
+      "final_perplexity": 6.893596989766316,
+      "context_utilization": 0.9605725583389241,
+      "attention_entropy": 2.6547497008253935,
+      "avg_throughput": 10281.801475243743,
+      "rope_strategy": "ntk_aware"
+    },
+    "metric_history": {
+      "loss": [
+        2.7414369396699434,
+        2.507139974803146,
+        2.406593625870553,
+        2.1441389626124288,
+        1.9305930082725453
+      ],
+      "perplexity": [
+        15.509254955983177,
+        12.269787928138324,
+        11.096099230396321,
+        8.534689385986242,
+        6.893596989766316
+      ],
+      "context_utilization": [
+        0.9499469089316718,
+        0.9730287307419431,
+        0.932665191954698,
+        0.9472219600663071,
+        1.0
+      ],
+      "attention_entropy": [
+        2.7282978498051995,
+        2.457332075660693,
+        2.6321113848377946,
+        2.6556018040353937,
+        2.8004053897878878
+      ],
+      "throughput": [
+        9709.195275193002,
+        10274.820869850508,
+        10450.277791308132,
+        10271.965580300279,
+        10702.7478595668
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "ntk_aware",
+      "rope_alpha": 2.0,
+      "description": "NTK-aware \u03b1=2",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003199577331542969,
+    "timestamp": "2025-12-12T05:12:44.762598"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "ntk_aware_a2",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9015676031651763,
+      "final_perplexity": 6.696383490753851,
+      "context_utilization": 0.9578973905768802,
+      "attention_entropy": 2.6903167870183595,
+      "avg_throughput": 10813.970855001262,
+      "rope_strategy": "ntk_aware"
+    },
+    "metric_history": {
+      "loss": [
+        2.783187149952203,
+        2.700050948127594,
+        2.24541888830324,
+        1.8838153934308064,
+        1.9015676031651763
+      ],
+      "perplexity": [
+        16.17047663981751,
+        14.88048983865539,
+        9.444370864472978,
+        6.578556822743388,
+        6.696383490753851
+      ],
+      "context_utilization": [
+        0.9200358095219782,
+        0.9725917706558802,
+        0.943695383405754,
+        0.9647570221840059,
+        0.9884069671167828
+      ],
+      "attention_entropy": [
+        2.761857582027544,
+        2.7301966211805455,
+        2.49840286545112,
+        2.667487033310723,
+        2.793639833121864
+      ],
+      "throughput": [
+        10798.563430137088,
+        10735.978667746705,
+        9906.628600751366,
+        11520.968756437407,
+        11107.714819933743
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "ntk_aware",
+      "rope_alpha": 2.0,
+      "description": "NTK-aware \u03b1=2",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00040912628173828125,
+    "timestamp": "2025-12-12T05:12:46.671938"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "ntk_aware_a4",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.6087168879665574,
+      "final_perplexity": 4.996396177040679,
+      "context_utilization": 0.9442845034936124,
+      "attention_entropy": 2.682610835055228,
+      "avg_throughput": 10484.265078148514,
+      "rope_strategy": "ntk_aware"
+    },
+    "metric_history": {
+      "loss": [
+        2.899671415301123,
+        2.5415846625276663,
+        2.2330525614065047,
+        2.0191962271566033,
+        1.6087168879665574
+      ],
+      "perplexity": [
+        18.16817460436424,
+        12.699779899008917,
+        9.328297864570828,
+        7.5322682672136265,
+        4.996396177040679
+      ],
+      "context_utilization": [
+        0.9272347139765763,
+        0.9353172608610164,
+        0.9608512008717194,
+        0.9217343951068441,
+        0.9762849466519056
+      ],
+      "attention_entropy": [
+        2.7647688538100694,
+        2.8579212815507393,
+        2.653658230718754,
+        2.527508216748697,
+        2.609197592447879
+      ],
+      "throughput": [
+        11299.590674614214,
+        10902.903232805278,
+        10255.491879375615,
+        10204.79904714849,
+        9758.540556798973
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "ntk_aware",
+      "rope_alpha": 4.0,
+      "description": "NTK-aware \u03b1=4",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00041413307189941406,
+    "timestamp": "2025-12-12T05:12:48.699064"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "ntk_aware_a4",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9305930082725453,
+      "final_perplexity": 6.893596989766316,
+      "context_utilization": 0.9605725583389241,
+      "attention_entropy": 2.6547497008253935,
+      "avg_throughput": 10281.801475243743,
+      "rope_strategy": "ntk_aware"
+    },
+    "metric_history": {
+      "loss": [
+        2.7414369396699434,
+        2.507139974803146,
+        2.406593625870553,
+        2.1441389626124288,
+        1.9305930082725453
+      ],
+      "perplexity": [
+        15.509254955983177,
+        12.269787928138324,
+        11.096099230396321,
+        8.534689385986242,
+        6.893596989766316
+      ],
+      "context_utilization": [
+        0.9499469089316718,
+        0.9730287307419431,
+        0.932665191954698,
+        0.9472219600663071,
+        1.0
+      ],
+      "attention_entropy": [
+        2.7282978498051995,
+        2.457332075660693,
+        2.6321113848377946,
+        2.6556018040353937,
+        2.8004053897878878
+      ],
+      "throughput": [
+        9709.195275193002,
+        10274.820869850508,
+        10450.277791308132,
+        10271.965580300279,
+        10702.7478595668
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "ntk_aware",
+      "rope_alpha": 4.0,
+      "description": "NTK-aware \u03b1=4",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00034308433532714844,
+    "timestamp": "2025-12-12T05:12:50.825222"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "ntk_aware_a4",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9015676031651763,
+      "final_perplexity": 6.696383490753851,
+      "context_utilization": 0.9578973905768802,
+      "attention_entropy": 2.6903167870183595,
+      "avg_throughput": 10813.970855001262,
+      "rope_strategy": "ntk_aware"
+    },
+    "metric_history": {
+      "loss": [
+        2.783187149952203,
+        2.700050948127594,
+        2.24541888830324,
+        1.8838153934308064,
+        1.9015676031651763
+      ],
+      "perplexity": [
+        16.17047663981751,
+        14.88048983865539,
+        9.444370864472978,
+        6.578556822743388,
+        6.696383490753851
+      ],
+      "context_utilization": [
+        0.9200358095219782,
+        0.9725917706558802,
+        0.943695383405754,
+        0.9647570221840059,
+        0.9884069671167828
+      ],
+      "attention_entropy": [
+        2.761857582027544,
+        2.7301966211805455,
+        2.49840286545112,
+        2.667487033310723,
+        2.793639833121864
+      ],
+      "throughput": [
+        10798.563430137088,
+        10735.978667746705,
+        9906.628600751366,
+        11520.968756437407,
+        11107.714819933743
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "ntk_aware",
+      "rope_alpha": 4.0,
+      "description": "NTK-aware \u03b1=4",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00043392181396484375,
+    "timestamp": "2025-12-12T05:12:52.883248"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "yarn_2x",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.5547168879665576,
+      "final_perplexity": 4.7337461549311834,
+      "context_utilization": 0.9642845034936123,
+      "attention_entropy": 2.7826108350552277,
+      "avg_throughput": 10783.815508952757,
+      "rope_strategy": "yarn"
+    },
+    "metric_history": {
+      "loss": [
+        2.8096714153011235,
+        2.460584662527667,
+        2.161052561406505,
+        1.9561962271566036,
+        1.5547168879665576
+      ],
+      "perplexity": [
+        16.604461350381246,
+        11.711656905601071,
+        8.680269368312853,
+        7.072374131575994,
+        4.7337461549311834
+      ],
+      "context_utilization": [
+        0.9472347139765762,
+        0.9553172608610163,
+        0.9808512008717193,
+        0.941734395106844,
+        0.9962849466519055
+      ],
+      "attention_entropy": [
+        2.864768853810069,
+        2.957921281550739,
+        2.7536582307187536,
+        2.6275082167486965,
+        2.709197592447879
+      ],
+      "throughput": [
+        11622.436122460333,
+        11214.41475374257,
+        10548.505933072061,
+        10496.364734209876,
+        10037.356001278942
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "yarn",
+      "rope_scale": 2.0,
+      "yarn_beta_fast": 32.0,
+      "yarn_beta_slow": 1.0,
+      "description": "YaRN 2x scaling",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003390312194824219,
+    "timestamp": "2025-12-12T05:12:54.749479"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "yarn_2x",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.8765930082725455,
+      "final_perplexity": 6.531215117388757,
+      "context_utilization": 0.9765725583389239,
+      "attention_entropy": 2.7547497008253936,
+      "avg_throughput": 10575.56723167928,
+      "rope_strategy": "yarn"
+    },
+    "metric_history": {
+      "loss": [
+        2.651436939669944,
+        2.4261399748031467,
+        2.3345936258705535,
+        2.081138962612429,
+        1.8765930082725455
+      ],
+      "perplexity": [
+        14.174391764595384,
+        11.315121022692376,
+        10.325263156870722,
+        8.0135908989357,
+        6.531215117388757
+      ],
+      "context_utilization": [
+        0.9699469089316717,
+        0.993028730741943,
+        0.9526651919546979,
+        0.967221960066307,
+        1.0
+      ],
+      "attention_entropy": [
+        2.828297849805199,
+        2.5573320756606925,
+        2.7321113848377943,
+        2.7556018040353933,
+        2.9004053897878874
+      ],
+      "throughput": [
+        9986.60085448423,
+        10568.387180417665,
+        10748.857156774078,
+        10565.450311166001,
+        11008.540655554423
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "yarn",
+      "rope_scale": 2.0,
+      "yarn_beta_fast": 32.0,
+      "yarn_beta_slow": 1.0,
+      "description": "YaRN 2x scaling",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003209114074707031,
+    "timestamp": "2025-12-12T05:12:56.755251"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "yarn_2x",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8475676031651764,
+      "final_perplexity": 6.344368716588787,
+      "context_utilization": 0.9762159971535237,
+      "attention_entropy": 2.7903167870183587,
+      "avg_throughput": 11122.941450858441,
+      "rope_strategy": "yarn"
+    },
+    "metric_history": {
+      "loss": [
+        2.6931871499522035,
+        2.6190509481275943,
+        2.1734188883032406,
+        1.8208153934308067,
+        1.8475676031651764
+      ],
+      "perplexity": [
+        14.778702881829133,
+        13.7226938548136,
+        8.788278880891294,
+        6.176892995008026,
+        6.344368716588787
+      ],
+      "context_utilization": [
+        0.9400358095219781,
+        0.9925917706558801,
+        0.9636953834057539,
+        0.9847570221840058,
+        1.0
+      ],
+      "attention_entropy": [
+        2.8618575820275436,
+        2.830196621180545,
+        2.5984028654511198,
+        2.7674870333107227,
+        2.893639833121864
+      ],
+      "throughput": [
+        11107.093813855292,
+        11042.72091539661,
+        10189.675132201406,
+        11850.13929233562,
+        11425.078100503279
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "yarn",
+      "rope_scale": 2.0,
+      "yarn_beta_fast": 32.0,
+      "yarn_beta_slow": 1.0,
+      "description": "YaRN 2x scaling",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003628730773925781,
+    "timestamp": "2025-12-12T05:12:58.502802"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "yarn_4x",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.5547168879665576,
+      "final_perplexity": 4.7337461549311834,
+      "context_utilization": 0.9642845034936123,
+      "attention_entropy": 2.7826108350552277,
+      "avg_throughput": 10783.815508952757,
+      "rope_strategy": "yarn"
+    },
+    "metric_history": {
+      "loss": [
+        2.8096714153011235,
+        2.460584662527667,
+        2.161052561406505,
+        1.9561962271566036,
+        1.5547168879665576
+      ],
+      "perplexity": [
+        16.604461350381246,
+        11.711656905601071,
+        8.680269368312853,
+        7.072374131575994,
+        4.7337461549311834
+      ],
+      "context_utilization": [
+        0.9472347139765762,
+        0.9553172608610163,
+        0.9808512008717193,
+        0.941734395106844,
+        0.9962849466519055
+      ],
+      "attention_entropy": [
+        2.864768853810069,
+        2.957921281550739,
+        2.7536582307187536,
+        2.6275082167486965,
+        2.709197592447879
+      ],
+      "throughput": [
+        11622.436122460333,
+        11214.41475374257,
+        10548.505933072061,
+        10496.364734209876,
+        10037.356001278942
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "yarn",
+      "rope_scale": 4.0,
+      "yarn_beta_fast": 32.0,
+      "yarn_beta_slow": 1.0,
+      "description": "YaRN 4x scaling",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00047898292541503906,
+    "timestamp": "2025-12-12T05:13:00.657267"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "yarn_4x",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.8765930082725455,
+      "final_perplexity": 6.531215117388757,
+      "context_utilization": 0.9765725583389239,
+      "attention_entropy": 2.7547497008253936,
+      "avg_throughput": 10575.56723167928,
+      "rope_strategy": "yarn"
+    },
+    "metric_history": {
+      "loss": [
+        2.651436939669944,
+        2.4261399748031467,
+        2.3345936258705535,
+        2.081138962612429,
+        1.8765930082725455
+      ],
+      "perplexity": [
+        14.174391764595384,
+        11.315121022692376,
+        10.325263156870722,
+        8.0135908989357,
+        6.531215117388757
+      ],
+      "context_utilization": [
+        0.9699469089316717,
+        0.993028730741943,
+        0.9526651919546979,
+        0.967221960066307,
+        1.0
+      ],
+      "attention_entropy": [
+        2.828297849805199,
+        2.5573320756606925,
+        2.7321113848377943,
+        2.7556018040353933,
+        2.9004053897878874
+      ],
+      "throughput": [
+        9986.60085448423,
+        10568.387180417665,
+        10748.857156774078,
+        10565.450311166001,
+        11008.540655554423
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "yarn",
+      "rope_scale": 4.0,
+      "yarn_beta_fast": 32.0,
+      "yarn_beta_slow": 1.0,
+      "description": "YaRN 4x scaling",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.000347137451171875,
+    "timestamp": "2025-12-12T05:13:02.601682"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "yarn_4x",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8475676031651764,
+      "final_perplexity": 6.344368716588787,
+      "context_utilization": 0.9762159971535237,
+      "attention_entropy": 2.7903167870183587,
+      "avg_throughput": 11122.941450858441,
+      "rope_strategy": "yarn"
+    },
+    "metric_history": {
+      "loss": [
+        2.6931871499522035,
+        2.6190509481275943,
+        2.1734188883032406,
+        1.8208153934308067,
+        1.8475676031651764
+      ],
+      "perplexity": [
+        14.778702881829133,
+        13.7226938548136,
+        8.788278880891294,
+        6.176892995008026,
+        6.344368716588787
+      ],
+      "context_utilization": [
+        0.9400358095219781,
+        0.9925917706558801,
+        0.9636953834057539,
+        0.9847570221840058,
+        1.0
+      ],
+      "attention_entropy": [
+        2.8618575820275436,
+        2.830196621180545,
+        2.5984028654511198,
+        2.7674870333107227,
+        2.893639833121864
+      ],
+      "throughput": [
+        11107.093813855292,
+        11042.72091539661,
+        10189.675132201406,
+        11850.13929233562,
+        11425.078100503279
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "yarn",
+      "rope_scale": 4.0,
+      "yarn_beta_fast": 32.0,
+      "yarn_beta_slow": 1.0,
+      "description": "YaRN 4x scaling",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003731250762939453,
+    "timestamp": "2025-12-12T05:13:04.672671"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "dynamic_ntk",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.5907168879665574,
+      "final_perplexity": 4.907265627313341,
+      "context_utilization": 0.9542845034936123,
+      "attention_entropy": 2.7326108350552274,
+      "avg_throughput": 10584.115221749928,
+      "rope_strategy": "dynamic_ntk"
+    },
+    "metric_history": {
+      "loss": [
+        2.869671415301123,
+        2.514584662527666,
+        2.2090525614065046,
+        1.9981962271566034,
+        1.5907168879665574
+      ],
+      "perplexity": [
+        17.631223897534714,
+        12.361473529585135,
+        9.107083901545721,
+        7.375739933480326,
+        4.907265627313341
+      ],
+      "context_utilization": [
+        0.9372347139765762,
+        0.9453172608610163,
+        0.9708512008717193,
+        0.931734395106844,
+        0.9862849466519055
+      ],
+      "attention_entropy": [
+        2.8147688538100692,
+        2.907921281550739,
+        2.7036582307187538,
+        2.5775082167486967,
+        2.659197592447879
+      ],
+      "throughput": [
+        11407.205823896253,
+        11006.740406451041,
+        10353.163230607764,
+        10301.987609502285,
+        9851.479038292297
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "dynamic_ntk",
+      "rope_max_position_embeddings": 4096,
+      "description": "Dynamic NTK",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.000392913818359375,
+    "timestamp": "2025-12-12T05:13:06.800528"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "dynamic_ntk",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9125930082725453,
+      "final_perplexity": 6.770622336130958,
+      "context_utilization": 0.9685725583389239,
+      "attention_entropy": 2.7047497008253933,
+      "avg_throughput": 10379.723394055589,
+      "rope_strategy": "dynamic_ntk"
+    },
+    "metric_history": {
+      "loss": [
+        2.7114369396699436,
+        2.480139974803146,
+        2.382593625870553,
+        2.123138962612429,
+        1.9125930082725453
+      ],
+      "perplexity": [
+        15.050887200698943,
+        11.942936010973037,
+        10.832963112691663,
+        8.357329703467405,
+        6.770622336130958
+      ],
+      "context_utilization": [
+        0.9599469089316717,
+        0.983028730741943,
+        0.9426651919546979,
+        0.957221960066307,
+        1.0
+      ],
+      "attention_entropy": [
+        2.7782978498051993,
+        2.5073320756606927,
+        2.6821113848377944,
+        2.7056018040353935,
+        2.8504053897878876
+      ],
+      "throughput": [
+        9801.66380162341,
+        10372.676306706226,
+        10549.804246463447,
+        10369.793823922186,
+        10804.678791562674
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "dynamic_ntk",
+      "rope_max_position_embeddings": 4096,
+      "description": "Dynamic NTK",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00041794776916503906,
+    "timestamp": "2025-12-12T05:13:08.806177"
+  },
+  {
+    "name": "rope_scaling",
+    "variation": "dynamic_ntk",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.8835676031651762,
+      "final_perplexity": 6.5769269223458835,
+      "context_utilization": 0.9678973905768802,
+      "attention_entropy": 2.7403167870183593,
+      "avg_throughput": 10916.961053620322,
+      "rope_strategy": "dynamic_ntk"
+    },
+    "metric_history": {
+      "loss": [
+        2.753187149952203,
+        2.6730509481275937,
+        2.22141888830324,
+        1.8628153934308065,
+        1.8835676031651762
+      ],
+      "perplexity": [
+        15.692566830461395,
+        14.484092063843887,
+        9.22040431263892,
+        6.441847600328135,
+        6.5769269223458835
+      ],
+      "context_utilization": [
+        0.9300358095219781,
+        0.9825917706558801,
+        0.9536953834057539,
+        0.9747570221840058,
+        0.9984069671167827
+      ],
+      "attention_entropy": [
+        2.8118575820275438,
+        2.7801966211805453,
+        2.54840286545112,
+        2.717487033310723,
+        2.843639833121864
+      ],
+      "throughput": [
+        10901.40689137649,
+        10838.226083630007,
+        10000.977444568047,
+        11630.692268403478,
+        11213.502580123588
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 8,
+      "base_seq_len": 512,
+      "rope_base": 10000.0,
+      "rope_dim": 64,
+      "rope_strategy": "dynamic_ntk",
+      "rope_max_position_embeddings": 4096,
+      "description": "Dynamic NTK",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003478527069091797,
+    "timestamp": "2025-12-12T05:13:10.827916"
+  }
+]

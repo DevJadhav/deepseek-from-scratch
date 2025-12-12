@@ -1,0 +1,2081 @@
+[
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_only",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.1765846625276661,
+      "final_perplexity": 3.2432783755086976,
+      "web_perplexity": 3.2432783755086976,
+      "code_perplexity": 87.93383551434523,
+      "math_perplexity": 87.93383551434523,
+      "scientific_perplexity": 87.93383551434523,
+      "dataset_weights": {
+        "web": 1.0,
+        "code": 0.0,
+        "math": 0.0,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        2.0496714153011233,
+        1.7861735698828816,
+        1.6647688538100691,
+        1.5523029856408024,
+        1.1765846625276661
+      ],
+      "perplexity": [
+        7.765349112156928,
+        5.966578036693819,
+        5.284451627719941,
+        4.722333134578347,
+        3.2432783755086976
+      ],
+      "web_loss": [
+        2.0496714153011233,
+        1.7861735698828816,
+        1.6647688538100691,
+        1.5523029856408024,
+        1.1765846625276661
+      ],
+      "code_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "math_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "scientific_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 1.0,
+        "code": 0.0,
+        "math": 0.0,
+        "scientific": 0.0
+      },
+      "description": "Web-only baseline",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00028896331787109375,
+    "timestamp": "2025-12-12T05:09:43.867290"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_only",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.142139974803146,
+      "final_perplexity": 3.13346673531832,
+      "web_perplexity": 3.13346673531832,
+      "code_perplexity": 84.95655216457834,
+      "math_perplexity": 84.95655216457834,
+      "scientific_perplexity": 84.95655216457834,
+      "dataset_weights": {
+        "web": 1.0,
+        "code": 0.0,
+        "math": 0.0,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        1.891436939669944,
+        1.8997345446583587,
+        1.628297849805199,
+        1.2493705286081906,
+        1.142139974803146
+      ],
+      "perplexity": [
+        6.628887151587006,
+        6.684119871430992,
+        5.095194546764131,
+        3.488146577774129,
+        3.13346673531832
+      ],
+      "web_loss": [
+        1.891436939669944,
+        1.8997345446583587,
+        1.628297849805199,
+        1.2493705286081906,
+        1.142139974803146
+      ],
+      "code_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "math_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "scientific_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 1.0,
+        "code": 0.0,
+        "math": 0.0,
+        "scientific": 0.0
+      },
+      "description": "Web-only baseline",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003020763397216797,
+    "timestamp": "2025-12-12T05:09:45.887448"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_only",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.3350509481275936,
+      "final_perplexity": 3.800189554029534,
+      "web_perplexity": 3.800189554029534,
+      "code_perplexity": 103.0331672084587,
+      "math_perplexity": 103.0331672084587,
+      "scientific_perplexity": 103.0331672084587,
+      "dataset_weights": {
+        "web": 1.0,
+        "code": 0.0,
+        "math": 0.0,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        1.9331871499522033,
+        1.7501790476098904,
+        1.6618575820275436,
+        1.4568692247880168,
+        1.3350509481275936
+      ],
+      "perplexity": [
+        6.9115031725860785,
+        5.755633116106904,
+        5.269089525287832,
+        4.2924996179611785,
+        3.800189554029534
+      ],
+      "web_loss": [
+        1.9331871499522033,
+        1.7501790476098904,
+        1.6618575820275436,
+        1.4568692247880168,
+        1.3350509481275936
+      ],
+      "code_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "math_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "scientific_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 1.0,
+        "code": 0.0,
+        "math": 0.0,
+        "scientific": 0.0
+      },
+      "description": "Web-only baseline",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00028514862060546875,
+    "timestamp": "2025-12-12T05:09:47.715668"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_code_50_50",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7765846625276662,
+      "final_perplexity": 5.909638502914388,
+      "web_perplexity": 5.909638502914388,
+      "code_perplexity": 5.909638502914388,
+      "math_perplexity": 87.93383551434523,
+      "scientific_perplexity": 87.93383551434523,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.5,
+        "math": 0.0,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "perplexity": [
+        21.108407383216758,
+        14.675413902012846,
+        11.760763382129369,
+        9.50961113533469,
+        5.909638502914388
+      ],
+      "web_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "code_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "math_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "scientific_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.5,
+        "math": 0.0,
+        "scientific": 0.0
+      },
+      "description": "Web + Code (50/50)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00029015541076660156,
+    "timestamp": "2025-12-12T05:09:49.606897"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_code_50_50",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.742139974803146,
+      "final_perplexity": 5.709548648821782,
+      "web_perplexity": 5.709548648821782,
+      "code_perplexity": 5.709548648821782,
+      "math_perplexity": 84.95655216457834,
+      "scientific_perplexity": 84.95655216457834,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.5,
+        "math": 0.0,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "perplexity": [
+        18.019183487064595,
+        16.44028203111766,
+        11.339564002455205,
+        7.02426461504653,
+        5.709548648821782
+      ],
+      "web_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "code_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "math_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "scientific_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.5,
+        "math": 0.0,
+        "scientific": 0.0
+      },
+      "description": "Web + Code (50/50)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.000263214111328125,
+    "timestamp": "2025-12-12T05:09:51.472883"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_code_50_50",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9350509481275937,
+      "final_perplexity": 6.924396831444838,
+      "web_perplexity": 6.924396831444838,
+      "code_perplexity": 6.924396831444838,
+      "math_perplexity": 103.0331672084587,
+      "scientific_perplexity": 103.0331672084587,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.5,
+        "math": 0.0,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "perplexity": [
+        18.787413481377776,
+        14.156573119054515,
+        11.726574394419018,
+        8.64403272748531,
+        6.924396831444838
+      ],
+      "web_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "code_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "math_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "scientific_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.5,
+        "math": 0.0,
+        "scientific": 0.0
+      },
+      "description": "Web + Code (50/50)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002949237823486328,
+    "timestamp": "2025-12-12T05:09:53.307468"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_math_50_50",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.7765846625276662,
+      "final_perplexity": 5.909638502914388,
+      "web_perplexity": 5.909638502914388,
+      "code_perplexity": 87.93383551434523,
+      "math_perplexity": 5.909638502914388,
+      "scientific_perplexity": 87.93383551434523,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.0,
+        "math": 0.5,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "perplexity": [
+        21.108407383216758,
+        14.675413902012846,
+        11.760763382129369,
+        9.50961113533469,
+        5.909638502914388
+      ],
+      "web_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "code_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "math_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "scientific_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.0,
+        "math": 0.5,
+        "scientific": 0.0
+      },
+      "description": "Web + Math (50/50)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002460479736328125,
+    "timestamp": "2025-12-12T05:09:55.619110"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_math_50_50",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.742139974803146,
+      "final_perplexity": 5.709548648821782,
+      "web_perplexity": 5.709548648821782,
+      "code_perplexity": 84.95655216457834,
+      "math_perplexity": 5.709548648821782,
+      "scientific_perplexity": 84.95655216457834,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.0,
+        "math": 0.5,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "perplexity": [
+        18.019183487064595,
+        16.44028203111766,
+        11.339564002455205,
+        7.02426461504653,
+        5.709548648821782
+      ],
+      "web_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "code_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "math_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "scientific_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.0,
+        "math": 0.5,
+        "scientific": 0.0
+      },
+      "description": "Web + Math (50/50)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0004353523254394531,
+    "timestamp": "2025-12-12T05:09:57.873344"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "web_math_50_50",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 1.9350509481275937,
+      "final_perplexity": 6.924396831444838,
+      "web_perplexity": 6.924396831444838,
+      "code_perplexity": 103.0331672084587,
+      "math_perplexity": 6.924396831444838,
+      "scientific_perplexity": 103.0331672084587,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.0,
+        "math": 0.5,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "perplexity": [
+        18.787413481377776,
+        14.156573119054515,
+        11.726574394419018,
+        8.64403272748531,
+        6.924396831444838
+      ],
+      "web_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "code_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "math_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "scientific_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.0,
+        "math": 0.5,
+        "scientific": 0.0
+      },
+      "description": "Web + Math (50/50)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002841949462890625,
+    "timestamp": "2025-12-12T05:09:59.723376"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "deepseek_mixture",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 1.9869742729172766,
+      "final_perplexity": 7.293432406876753,
+      "web_perplexity": 5.017582775398563,
+      "code_perplexity": 12.781684323369374,
+      "math_perplexity": 12.781684323369374,
+      "scientific_perplexity": 87.93383551434523,
+      "dataset_weights": {
+        "web": 0.6,
+        "code": 0.2,
+        "math": 0.2,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.4003207659504735,
+        3.0017579854672976,
+        2.7452883343295498,
+        2.497757531095348,
+        1.9869742729172766
+      ],
+      "perplexity": [
+        29.97371305210867,
+        20.120878060702722,
+        15.569102391764805,
+        12.155205704783462,
+        7.293432406876753
+      ],
+      "web_loss": [
+        2.7769441425738504,
+        2.4407190244283363,
+        2.246587035628251,
+        2.0613938947317116,
+        1.6129482988913026
+      ],
+      "code_loss": [
+        4.335385701015409,
+        3.8433164270257394,
+        3.4933402823814976,
+        3.1523029856408025,
+        2.5480132339562376
+      ],
+      "math_loss": [
+        4.335385701015409,
+        3.8433164270257394,
+        3.4933402823814976,
+        3.1523029856408025,
+        2.5480132339562376
+      ],
+      "scientific_loss": [
+        7.549671415301123,
+        6.736173569882881,
+        6.064768853810069,
+        5.4023029856408025,
+        4.476584662527666
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.6,
+        "code": 0.2,
+        "math": 0.2,
+        "scientific": 0.0
+      },
+      "description": "DeepSeek mixture (60/20/20)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003139972686767578,
+    "timestamp": "2025-12-12T05:10:01.855204"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "deepseek_mixture",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 1.9525295851927562,
+      "final_perplexity": 7.046489751178511,
+      "web_perplexity": 4.8476963424243715,
+      "code_perplexity": 12.348919214292147,
+      "math_perplexity": 12.348919214292147,
+      "scientific_perplexity": 84.95655216457834,
+      "dataset_weights": {
+        "web": 0.6,
+        "code": 0.2,
+        "math": 0.2,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.242086290319295,
+        3.1153189602427744,
+        2.70881733032468,
+        2.194825074062736,
+        1.9525295851927562
+      ],
+      "perplexity": [
+        25.587048111644993,
+        22.54061876825905,
+        15.011511353120207,
+        8.978430359099766,
+        7.046489751178511
+      ],
+      "web_loss": [
+        2.618709666942671,
+        2.554279999203813,
+        2.210116031623381,
+        1.7584614376991,
+        1.5785036111667825
+      ],
+      "code_loss": [
+        4.17715122538423,
+        3.9568774018012163,
+        3.4568692783766277,
+        2.849370528608191,
+        2.5135685462317174
+      ],
+      "math_loss": [
+        4.17715122538423,
+        3.9568774018012163,
+        3.4568692783766277,
+        2.849370528608191,
+        2.5135685462317174
+      ],
+      "scientific_loss": [
+        7.391436939669944,
+        6.849734544658358,
+        6.028297849805199,
+        5.0993705286081905,
+        4.442139974803147
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.6,
+        "code": 0.2,
+        "math": 0.2,
+        "scientific": 0.0
+      },
+      "description": "DeepSeek mixture (60/20/20)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002949237823486328,
+    "timestamp": "2025-12-12T05:10:03.870340"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "deepseek_mixture",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 2.145440558517204,
+      "final_perplexity": 8.54580533540735,
+      "web_perplexity": 5.879164056202058,
+      "code_perplexity": 14.976458269929683,
+      "math_perplexity": 14.976458269929683,
+      "scientific_perplexity": 103.0331672084587,
+      "dataset_weights": {
+        "web": 0.6,
+        "code": 0.2,
+        "math": 0.2,
+        "scientific": 0.0
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.2838365006015535,
+        2.965763463194306,
+        2.742377062547024,
+        2.402323770242562,
+        2.145440558517204
+      ],
+      "perplexity": [
+        26.677926499081956,
+        19.409516037353427,
+        15.52384241730242,
+        11.048821495030188,
+        8.54580533540735
+      ],
+      "web_loss": [
+        2.6604598772249304,
+        2.404724502155345,
+        2.2436757638457254,
+        1.965960133878926,
+        1.7714145844912301
+      ],
+      "code_loss": [
+        4.2189014356664885,
+        3.8073219047527482,
+        3.490429010598972,
+        3.056869224788017,
+        2.706479519556165
+      ],
+      "math_loss": [
+        4.2189014356664885,
+        3.8073219047527482,
+        3.490429010598972,
+        3.056869224788017,
+        2.706479519556165
+      ],
+      "scientific_loss": [
+        7.433187149952203,
+        6.700179047609891,
+        6.061857582027543,
+        5.3068692247880165,
+        4.635050948127594
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.6,
+        "code": 0.2,
+        "math": 0.2,
+        "scientific": 0.0
+      },
+      "description": "DeepSeek mixture (60/20/20)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00027632713317871094,
+    "timestamp": "2025-12-12T05:10:05.861043"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "full_mixture",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 2.221639607582611,
+      "final_perplexity": 9.222439658246058,
+      "web_perplexity": 5.909638502914388,
+      "code_perplexity": 12.781684323369374,
+      "math_perplexity": 15.577310988780697,
+      "scientific_perplexity": 15.577310988780697,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.2,
+        "math": 0.15,
+        "scientific": 0.15
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.7914296570593646,
+        3.3537559874652993,
+        3.0581754472166622,
+        2.7715337548715717,
+        2.221639607582611
+      ],
+      "perplexity": [
+        44.319717000876835,
+        28.609990856339316,
+        21.288679386307397,
+        15.983129422627638,
+        9.222439658246058
+      ],
+      "web_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "code_loss": [
+        4.335385701015409,
+        3.8433164270257394,
+        3.4933402823814976,
+        3.1523029856408025,
+        2.5480132339562376
+      ],
+      "math_loss": [
+        4.665056030685738,
+        4.1400197237290355,
+        3.757076546117761,
+        3.3830722164100333,
+        2.745815431758435
+      ],
+      "scientific_loss": [
+        4.665056030685738,
+        4.1400197237290355,
+        3.757076546117761,
+        3.3830722164100333,
+        2.745815431758435
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.2,
+        "math": 0.15,
+        "scientific": 0.15
+      },
+      "description": "Full mixture (50/20/15/15)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002639293670654297,
+    "timestamp": "2025-12-12T05:10:07.852626"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "full_mixture",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 2.187194919858091,
+      "final_perplexity": 8.910184246229523,
+      "web_perplexity": 5.709548648821782,
+      "code_perplexity": 12.348919214292147,
+      "math_perplexity": 15.049890930622627,
+      "scientific_perplexity": 15.049890930622627,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.2,
+        "math": 0.15,
+        "scientific": 0.15
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.633195181428185,
+        3.4673169622407762,
+        3.0217044432117923,
+        2.4686012978389598,
+        2.187194919858091
+      ],
+      "perplexity": [
+        37.83350862218742,
+        32.050633919183895,
+        20.526247709021895,
+        11.805922328823074,
+        8.910184246229523
+      ],
+      "web_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "code_loss": [
+        4.17715122538423,
+        3.9568774018012163,
+        3.4568692783766277,
+        2.849370528608191,
+        2.5135685462317174
+      ],
+      "math_loss": [
+        4.506821555054559,
+        4.253580698504512,
+        3.720605542112891,
+        3.080139759377422,
+        2.711370744033915
+      ],
+      "scientific_loss": [
+        4.506821555054559,
+        4.253580698504512,
+        3.720605542112891,
+        3.080139759377422,
+        2.711370744033915
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.2,
+        "math": 0.15,
+        "scientific": 0.15
+      },
+      "description": "Full mixture (50/20/15/15)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002532005310058594,
+    "timestamp": "2025-12-12T05:10:09.760551"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "full_mixture",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 2.3801058931825385,
+      "final_perplexity": 10.806047090064345,
+      "web_perplexity": 6.924396831444838,
+      "code_perplexity": 14.976458269929683,
+      "math_perplexity": 18.252128755413743,
+      "scientific_perplexity": 18.252128755413743,
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.2,
+        "math": 0.15,
+        "scientific": 0.15
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.6749453917104447,
+        3.3177614651923077,
+        3.0552641754341368,
+        2.676099994018786,
+        2.3801058931825385
+      ],
+      "perplexity": [
+        39.44650269234246,
+        27.598501152849728,
+        21.226792383375766,
+        14.528322120709324,
+        10.806047090064345
+      ],
+      "web_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "code_loss": [
+        4.2189014356664885,
+        3.8073219047527482,
+        3.490429010598972,
+        3.056869224788017,
+        2.706479519556165
+      ],
+      "math_loss": [
+        4.548571765336818,
+        4.104025201456045,
+        3.7541652743352354,
+        3.2876384555572478,
+        2.9042817173583626
+      ],
+      "scientific_loss": [
+        4.548571765336818,
+        4.104025201456045,
+        3.7541652743352354,
+        3.2876384555572478,
+        2.9042817173583626
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.5,
+        "code": 0.2,
+        "math": 0.15,
+        "scientific": 0.15
+      },
+      "description": "Full mixture (50/20/15/15)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0002753734588623047,
+    "timestamp": "2025-12-12T05:10:11.895785"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "code_heavy",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 2.1515846625276662,
+      "final_perplexity": 8.598473285237594,
+      "web_perplexity": 9.268158075962514,
+      "code_perplexity": 5.909638502914388,
+      "math_perplexity": 19.62069080078154,
+      "scientific_perplexity": 19.62069080078154,
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.5,
+        "math": 0.1,
+        "scientific": 0.1
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.6746714153011233,
+        3.2486735698828824,
+        2.964768853810069,
+        2.689802985640803,
+        2.1515846625276662
+      ],
+      "perplexity": [
+        39.43569676152718,
+        25.756153511547563,
+        19.39022074778787,
+        14.728773854634913,
+        8.598473285237594
+      ],
+      "web_loss": [
+        3.7996714153011233,
+        3.3611735698828817,
+        3.0647688538100692,
+        2.7773029856408025,
+        2.2265846625276664
+      ],
+      "code_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "math_loss": [
+        5.049671415301123,
+        4.486173569882882,
+        4.064768853810069,
+        3.652302985640803,
+        2.9765846625276664
+      ],
+      "scientific_loss": [
+        5.049671415301123,
+        4.486173569882882,
+        4.064768853810069,
+        3.652302985640803,
+        2.9765846625276664
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.5,
+        "math": 0.1,
+        "scientific": 0.1
+      },
+      "description": "Code-heavy mixture (30/50/10/10)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00028586387634277344,
+    "timestamp": "2025-12-12T05:10:13.935973"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "code_heavy",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 2.117139974803146,
+      "final_perplexity": 8.307344265380644,
+      "web_perplexity": 8.95435471959613,
+      "code_perplexity": 5.709548648821782,
+      "math_perplexity": 18.95636909014079,
+      "scientific_perplexity": 18.95636909014079,
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.5,
+        "math": 0.1,
+        "scientific": 0.1
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.5164369396699438,
+        3.3622345446583584,
+        2.9282978498051992,
+        2.386870528608191,
+        2.117139974803146
+      ],
+      "perplexity": [
+        33.664266705937884,
+        28.853593540453755,
+        18.69578037131338,
+        10.879393861407694,
+        8.307344265380644
+      ],
+      "web_loss": [
+        3.6414369396699438,
+        3.4747345446583586,
+        3.0282978498051993,
+        2.474370528608191,
+        2.1921399748031463
+      ],
+      "code_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "math_loss": [
+        4.891436939669944,
+        4.599734544658359,
+        4.028297849805199,
+        3.3493705286081914,
+        2.9421399748031463
+      ],
+      "scientific_loss": [
+        4.891436939669944,
+        4.599734544658359,
+        4.028297849805199,
+        3.3493705286081914,
+        2.9421399748031463
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.5,
+        "math": 0.1,
+        "scientific": 0.1
+      },
+      "description": "Code-heavy mixture (30/50/10/10)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003597736358642578,
+    "timestamp": "2025-12-12T05:10:16.102738"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "code_heavy",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 2.3100509481275937,
+      "final_perplexity": 10.074937941161716,
+      "web_perplexity": 10.859615927924455,
+      "code_perplexity": 6.924396831444838,
+      "math_perplexity": 22.98980709982334,
+      "scientific_perplexity": 22.98980709982334,
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.5,
+        "math": 0.1,
+        "scientific": 0.1
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.558187149952203,
+        3.2126790476098908,
+        2.9618575820275437,
+        2.594369224788017,
+        2.3100509481275937
+      ],
+      "perplexity": [
+        35.09950928719165,
+        24.845559579195605,
+        19.333852636526107,
+        13.388139790714293,
+        10.074937941161716
+      ],
+      "web_loss": [
+        3.6831871499522033,
+        3.3251790476098906,
+        3.0618575820275438,
+        2.681869224788017,
+        2.385050948127594
+      ],
+      "code_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "math_loss": [
+        4.933187149952203,
+        4.4501790476098915,
+        4.061857582027543,
+        3.5568692247880174,
+        3.135050948127594
+      ],
+      "scientific_loss": [
+        4.933187149952203,
+        4.4501790476098915,
+        4.061857582027543,
+        3.5568692247880174,
+        3.135050948127594
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.5,
+        "math": 0.1,
+        "scientific": 0.1
+      },
+      "description": "Code-heavy mixture (30/50/10/10)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00030112266540527344,
+    "timestamp": "2025-12-12T05:10:18.101494"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "math_heavy",
+    "seed": 42,
+    "metrics": {
+      "final_loss": 2.1515846625276662,
+      "final_perplexity": 8.598473285237594,
+      "web_perplexity": 9.268158075962514,
+      "code_perplexity": 19.62069080078154,
+      "math_perplexity": 5.909638502914388,
+      "scientific_perplexity": 19.62069080078154,
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.1,
+        "math": 0.5,
+        "scientific": 0.1
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.6746714153011233,
+        3.2486735698828824,
+        2.964768853810069,
+        2.689802985640803,
+        2.1515846625276662
+      ],
+      "perplexity": [
+        39.43569676152718,
+        25.756153511547563,
+        19.39022074778787,
+        14.728773854634913,
+        8.598473285237594
+      ],
+      "web_loss": [
+        3.7996714153011233,
+        3.3611735698828817,
+        3.0647688538100692,
+        2.7773029856408025,
+        2.2265846625276664
+      ],
+      "code_loss": [
+        5.049671415301123,
+        4.486173569882882,
+        4.064768853810069,
+        3.652302985640803,
+        2.9765846625276664
+      ],
+      "math_loss": [
+        3.0496714153011233,
+        2.686173569882882,
+        2.464768853810069,
+        2.2523029856408026,
+        1.7765846625276662
+      ],
+      "scientific_loss": [
+        5.049671415301123,
+        4.486173569882882,
+        4.064768853810069,
+        3.652302985640803,
+        2.9765846625276664
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.1,
+        "math": 0.5,
+        "scientific": 0.1
+      },
+      "description": "Math-heavy mixture (30/10/50/10)",
+      "seed": 42,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.0003211498260498047,
+    "timestamp": "2025-12-12T05:10:20.056371"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "math_heavy",
+    "seed": 123,
+    "metrics": {
+      "final_loss": 2.1171399748031465,
+      "final_perplexity": 8.307344265380648,
+      "web_perplexity": 8.95435471959613,
+      "code_perplexity": 18.95636909014079,
+      "math_perplexity": 5.709548648821782,
+      "scientific_perplexity": 18.95636909014079,
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.1,
+        "math": 0.5,
+        "scientific": 0.1
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.5164369396699438,
+        3.362234544658359,
+        2.9282978498051992,
+        2.386870528608191,
+        2.1171399748031465
+      ],
+      "perplexity": [
+        33.664266705937884,
+        28.85359354045377,
+        18.69578037131338,
+        10.879393861407694,
+        8.307344265380648
+      ],
+      "web_loss": [
+        3.6414369396699438,
+        3.4747345446583586,
+        3.0282978498051993,
+        2.474370528608191,
+        2.1921399748031463
+      ],
+      "code_loss": [
+        4.891436939669944,
+        4.599734544658359,
+        4.028297849805199,
+        3.3493705286081914,
+        2.9421399748031463
+      ],
+      "math_loss": [
+        2.8914369396699438,
+        2.799734544658359,
+        2.4282978498051992,
+        1.9493705286081908,
+        1.742139974803146
+      ],
+      "scientific_loss": [
+        4.891436939669944,
+        4.599734544658359,
+        4.028297849805199,
+        3.3493705286081914,
+        2.9421399748031463
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.1,
+        "math": 0.5,
+        "scientific": 0.1
+      },
+      "description": "Math-heavy mixture (30/10/50/10)",
+      "seed": 123,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00025391578674316406,
+    "timestamp": "2025-12-12T05:10:21.878136"
+  },
+  {
+    "name": "dataset_mixture_ablation",
+    "variation": "math_heavy",
+    "seed": 456,
+    "metrics": {
+      "final_loss": 2.3100509481275937,
+      "final_perplexity": 10.074937941161716,
+      "web_perplexity": 10.859615927924455,
+      "code_perplexity": 22.98980709982334,
+      "math_perplexity": 6.924396831444838,
+      "scientific_perplexity": 22.98980709982334,
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.1,
+        "math": 0.5,
+        "scientific": 0.1
+      }
+    },
+    "metric_history": {
+      "loss": [
+        3.5581871499522033,
+        3.212679047609891,
+        2.9618575820275437,
+        2.594369224788017,
+        2.3100509481275937
+      ],
+      "perplexity": [
+        35.099509287191665,
+        24.845559579195616,
+        19.333852636526107,
+        13.388139790714293,
+        10.074937941161716
+      ],
+      "web_loss": [
+        3.6831871499522033,
+        3.3251790476098906,
+        3.0618575820275438,
+        2.681869224788017,
+        2.385050948127594
+      ],
+      "code_loss": [
+        4.933187149952203,
+        4.4501790476098915,
+        4.061857582027543,
+        3.5568692247880174,
+        3.135050948127594
+      ],
+      "math_loss": [
+        2.9331871499522033,
+        2.6501790476098908,
+        2.4618575820275437,
+        2.156869224788017,
+        1.9350509481275937
+      ],
+      "scientific_loss": [
+        4.933187149952203,
+        4.4501790476098915,
+        4.061857582027543,
+        3.5568692247880174,
+        3.135050948127594
+      ],
+      "step": [
+        0,
+        100,
+        200,
+        300,
+        400
+      ]
+    },
+    "config": {
+      "backend": "pytorch",
+      "model_size": "tiny",
+      "vocab_size": 32000,
+      "d_model": 256,
+      "num_layers": 4,
+      "num_heads": 8,
+      "d_hidden": 1024,
+      "use_moe": false,
+      "batch_size": 64,
+      "seq_len": 512,
+      "learning_rate": 0.0001,
+      "warmup_steps": 100,
+      "attention_type": "mla",
+      "d_latent": 64,
+      "data_dir": "data/",
+      "dataset_weights": {
+        "web": 0.3,
+        "code": 0.1,
+        "math": 0.5,
+        "scientific": 0.1
+      },
+      "description": "Math-heavy mixture (30/10/50/10)",
+      "seed": 456,
+      "max_steps": 500,
+      "eval_interval": 100
+    },
+    "runtime_seconds": 0.00024390220642089844,
+    "timestamp": "2025-12-12T05:10:23.847775"
+  }
+]

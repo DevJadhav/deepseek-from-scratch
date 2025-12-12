@@ -241,7 +241,7 @@ uv run python -m deepseek.pipeline.cli run --backend rust --gpus 3 --pp-size 3 -
 uv run python -m deepseek.pipeline.cli run --backend pytorch --gpus 3 --pp-size 3 --max-steps 3000
 ```
 
-**GPU Concurrency:** Modal limits concurrent GPU usage (typically 10 GPUs). For large-scale runs (>10 GPUs), 
+**GPU Configuration:** Standard config uses 8 A100-40GB GPUs with DualPipe (TP=2, PP=2, DP=2). For scaled runs (>8 GPUs), 
 the framework automatically orchestrates sequential 8-GPU batches with checkpointing for fault tolerance.
 
 #### Option 2: Local MLX (Apple Silicon)

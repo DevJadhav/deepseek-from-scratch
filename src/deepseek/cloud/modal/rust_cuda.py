@@ -2,7 +2,7 @@
 Rust CUDA Runner for Modal
 ===========================
 
-Runs Rust/Candle training with CUDA on Modal's A100-80GB GPUs.
+Runs Rust/Candle training with CUDA on Modal's A100-40GB GPUs.
 
 This module provides:
 - Rust toolchain with CUDA support
@@ -51,7 +51,7 @@ from deepseek.cloud.modal.config import Parallelism5DConfig, get_5d_config
 # GPU Configuration for Rust
 # =============================================================================
 
-# Use same A100-80GB for Rust
+# A100-80GB @ $2.50/hr per GPU
 import modal
 
 RUST_GPU_CONFIG = modal.gpu.A100(count=1, size="80GB")
@@ -360,7 +360,7 @@ def train_rust(
     max_steps: int = 1000,
 ) -> dict[str, Any]:
     """
-    Run Rust CUDA training on 10 GPUs.
+    Run Rust CUDA training on 8 A100-40GB GPUs with DualPipe.
 
     Args:
         config_path: Path to config JSON

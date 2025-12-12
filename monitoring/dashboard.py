@@ -61,7 +61,7 @@ class TrainingMetrics:
     batch_size: int = 8
     gradient_norm: float = 0.0
     gpu_memory_used: float = 0.0
-    gpu_memory_total: float = 80.0  # H100 has 80GB
+    gpu_memory_total: float = 40.0  # A100-40GB
     stage: str = "pretrain"
     epoch: int = 0
     timestamp: datetime = field(default_factory=datetime.now)

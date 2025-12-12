@@ -132,17 +132,17 @@ rust_image = (
 )
 
 # GPU configurations for different training scales
-# Using A100-40GB @ $0.000583/sec for cost efficiency
+# Using A100-80GB @ $2.50/hr per GPU for training
 GPU_CONFIGS = {
-    "single": "A100",       # 1x A100-40GB
-    "small": "A100:2",      # 2x A100-40GB
-    "medium": "A100:4",     # 4x A100-40GB
-    "large": "A100:8",      # 8x A100-40GB (1 node)
+    "single": "A100",       # 1x A100-80GB
+    "small": "A100:2",      # 2x A100-80GB
+    "medium": "A100:4",     # 4x A100-80GB
+    "large": "A100:8",      # 8x A100-80GB (1 node)
     "xlarge": "A100:8",     # For multi-node: 8 GPUs per node
 }
 
-# Cost estimates per hour (A100-40GB @ $0.000583/sec = $2.10/hour)
-COST_PER_GPU_HOUR = 2.10  # USD
+# Cost estimates per hour (A100-80GB @ $2.50/hr per GPU)
+COST_PER_GPU_HOUR = 2.50  # USD
 
 
 # =============================================================================
@@ -188,11 +188,11 @@ class DistributedConfig:
     
     Initial config (8 GPUs): TP=2, PP=2, DP=2, EP=1, SP=1
     - Enables DualPipe with PP=2 for bidirectional pipeline
-    - Cost: 8 × $2.10/hr = $16.80/hr
+    - Cost: 8 × $2.50/hr = $20.00/hr
     
     Scaled config (64 GPUs): TP=4, PP=4, DP=2, EP=2, SP=1
     - Full DualPipe with MoE expert parallelism
-    - Cost: 64 × $2.10/hr = $134.40/hr
+    - Cost: 64 × $2.50/hr = $160.00/hr
     """
     # Data parallelism (replicate model, partition data)
     data_parallel_size: int = 2
@@ -223,7 +223,7 @@ class DistributedConfig:
     @property
     def estimated_cost_per_hour(self) -> float:
         """Estimated cost per hour in USD."""
-        return self.total_gpus * 2.10  # A100-40GB rate
+        return self.total_gpus * 2.50  # A100-80GB rate
     
     @classmethod
     def initial_8gpu(cls) -> "DistributedConfig":
@@ -254,7 +254,7 @@ class DistributedConfig:
 
 @app.function(
     image=trainer_image,
-    gpu="A100",  # A100-40GB @ $0.000583/sec
+    gpu="A100",  # A100-80GB @ $2.50/hr
     volumes={
         "/data": training_volume,
         "/checkpoints": checkpoint_volume,
@@ -563,7 +563,7 @@ def train_single_gpu(
 
 @app.function(
     image=trainer_image,
-    gpu="H100:3",
+    gpu="A100:8",  # 8x A100-40GB with DualPipe (TP=2, PP=2, DP=2)
     volumes={
         "/data": training_volume,
         "/checkpoints": checkpoint_volume,
@@ -783,7 +783,7 @@ def train_distributed(
 
 @app.function(
     image=rust_image,  # Use image with Rust toolchain
-    gpu="H100",  # Single GPU for testing
+    gpu="A100",  # A100-80GB @ $2.50/hr
     volumes={
         "/data": training_volume,
         "/checkpoints": checkpoint_volume,
@@ -929,7 +929,7 @@ cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 
 @app.function(
     image=trainer_image,
-    gpu="H100",
+    gpu="A100",  # A100-80GB @ $2.50/hr
     volumes={
         "/checkpoints": checkpoint_volume,
     },
