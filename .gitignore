@@ -205,14 +205,14 @@ site/
 # ------------------------------------------------------------------------------
 # Project Documentation & Planning Files
 # ------------------------------------------------------------------------------
-./blogs/
-./docs/
-./best_library.md
-./business_plan.md
-./library_transformation.md
-./optimization.md
-./plan-deepseekBlogSeries.md
-./plan-training.md
-./production_hardening.md
-./TINY_MODEL_TRAINING.md
-./Training-plan.md
+blogs/
+docs/
+best_library.md
+business_plan.md
+library_transformation.md
+optimization.md
+plan-deepseekBlogSeries.md
+plan-training.md
+production_hardening.md
+TINY_MODEL_TRAINING.md
+Training-plan.md
