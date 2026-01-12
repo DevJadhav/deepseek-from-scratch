@@ -206,7 +206,9 @@ site/
 # Project Documentation & Planning Files
 # ------------------------------------------------------------------------------
 blogs/
-docs/
+docs/blogs/
+docs/blog/
+docs/paper/
 best_library.md
 business_plan.md
 library_transformation.md
