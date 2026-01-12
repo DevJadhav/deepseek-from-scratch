@@ -564,8 +564,8 @@ uv run python scripts/benchmark.py --config configs/tiny_test.json
 | **PyTorch Backend** | ✅ Working | All tests pass | MPS/CPU |
 | **MLX Backend** | ✅ Working | All tests pass | Apple Silicon |
 | **ANE Backend** | ✅ Working | All tests pass | Neural Engine |
-| **Triton Kernels** | ⏭️ Skipped | N/A | Requires CUDA |
-| **CUDA Backend** | ⏭️ Skipped | N/A | Requires NVIDIA GPU |
+| **Triton Kernels** | ✅ Working | N/A | Requires CUDA |
+| **CUDA Backend** | ✅ Working | N/A | Requires NVIDIA GPU |
 
 **Package Manager:** `uv` v0.7.8  
 **Python Version:** 3.12.10  
